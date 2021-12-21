@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 project(LGTVDeviceListener)
 
+find_package(cxxopts REQUIRED)
+
 set(CMAKE_CXX_STANDARD 20)
 add_compile_options(
 	/WX /W4 /permissive- /analyze
@@ -17,4 +19,5 @@ add_compile_options(
 )
 
 add_executable(LGTVDeviceListener LGTVDeviceListener.cpp)
+target_link_libraries(LGTVDeviceListener PRIVATE cxxopts::cxxopts)
 install(TARGETS LGTVDeviceListener RUNTIME DESTINATION bin)
