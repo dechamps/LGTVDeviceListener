@@ -3,6 +3,7 @@
   "name": "lgtv-device-listener",
   "version": "0",
   "dependencies": [
-    "cxxopts"
+    "cxxopts",
+    "ixwebsocket"
   ]
 }

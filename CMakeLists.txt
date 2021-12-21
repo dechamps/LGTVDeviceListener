@@ -2,10 +2,14 @@ cmake_minimum_required(VERSION 3.21)
 project(LGTVDeviceListener)
 
 find_package(cxxopts REQUIRED)
+find_package(ixwebsocket REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
 add_compile_options(
-	/WX /W4 /permissive- /analyze
+	/Zc:__cplusplus
+
+	/WX /W4 /permissive-
+	/external:anglebrackets /external:W0
 
 	# Suppress warnings about shadowing declarations.
 	#
@@ -19,5 +23,9 @@ add_compile_options(
 )
 
 add_executable(LGTVDeviceListener LGTVDeviceListener.cpp)
-target_link_libraries(LGTVDeviceListener PRIVATE cxxopts::cxxopts)
-install(TARGETS LGTVDeviceListener RUNTIME DESTINATION bin)
+target_link_libraries(LGTVDeviceListener
+	PRIVATE cxxopts::cxxopts
+	PRIVATE ixwebsocket::ixwebsocket
+	PRIVATE ws2_32
+)
+install(TARGETS LGTVDeviceListener)
