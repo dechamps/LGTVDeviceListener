@@ -27,12 +27,15 @@ namespace LGTVDeviceListener {
 		webSocket.disableAutomaticReconnection();
 	}
 
-	void WebSocketClient::Run(const std::function<void()>& onOpen) {
+	void WebSocketClient::Run(const std::function<void()>& onOpen, const std::function<void(const std::string&)>& onMessage) {
 		webSocket.setOnMessageCallback([&](const ix::WebSocketMessagePtr& webSocketMessage) {
 			std::cerr << "OnMessageCallback(" << std::to_string(static_cast<int>(webSocketMessage->type)) << ")" << std::endl;
 
 			using Type = ix::WebSocketMessageType;
 			switch (webSocketMessage->type) {
+			case Type::Message: {
+				onMessage(webSocketMessage->str);
+			} break;
 			case Type::Open: {
 				onOpen();
 			} break;

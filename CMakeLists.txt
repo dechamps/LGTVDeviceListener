@@ -3,10 +3,11 @@ project(LGTVDeviceListener)
 
 find_package(cxxopts REQUIRED)
 find_package(ixwebsocket REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
 add_compile_options(
-	/Zc:__cplusplus
+	/Zc:__cplusplus /utf-8
 
 	/WX /W4 /permissive-
 	/external:anglebrackets /external:W0
@@ -30,6 +31,7 @@ target_link_libraries(WebSocketClient
 add_library(LGTVClient LGTVClient.cpp)
 target_link_libraries(LGTVClient
 	PRIVATE WebSocketClient
+	PRIVATE nlohmann_json
 )
 
 add_executable(LGTVDeviceListener LGTVDeviceListener.cpp)
