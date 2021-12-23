@@ -1,25 +1,14 @@
-#include <cxxopts.hpp>
+#include "WebSocketClient.h"
 
-#include <ixwebsocket/IXNetSystem.h>
-#include <ixwebsocket/IXWebSocket.h>
+#include <cxxopts.hpp>
 
 namespace LGTVDeviceListener {
 	namespace {
 
-		class IxNetSystemInitializer final {
-		public:
-			IxNetSystemInitializer() {
-				if (!ix::initNetSystem()) throw std::runtime_error("Unable to initialize WebSocket net system");
-			}
-			~IxNetSystemInitializer() {
-				ix::uninitNetSystem();
-			}
-		};
-
 		struct Options final {
 			std::string url;
-			int connectTimeoutSeconds = 5;
-			int handshakeTimeoutSeconds = 5;
+			int connectTimeoutSeconds = WebSocketClient::Options().connectTimeoutSeconds;
+			int handshakeTimeoutSeconds = WebSocketClient::Options().handshakeTimeoutSeconds;
 		};
 
 		std::optional<Options> ParseCommandLine(int argc, char** argv) {
@@ -43,22 +32,10 @@ namespace LGTVDeviceListener {
 		}
 
 		void Run(const Options& options) {
-			IxNetSystemInitializer ixNetSystemInitializer;
-			ix::WebSocket webSocket;
-
-			webSocket.setOnMessageCallback([](const ix::WebSocketMessagePtr& webSocketMessage) {
-				std::cerr << "OnMessageCallback(" << std::to_string(static_cast<int>(webSocketMessage->type)) << ")" << std::endl;
-
-				if (webSocketMessage->type == ix::WebSocketMessageType::Error) {
-					std::cerr << "WebSocket error: " << webSocketMessage->errorInfo.reason << std::endl;
-				}
-			});
-
-			webSocket.setUrl(options.url);
-			webSocket.setHandshakeTimeout(options.handshakeTimeoutSeconds);
-			webSocket.disableAutomaticReconnection();
-			webSocket.connect(options.connectTimeoutSeconds);
-			webSocket.run();
+			WebSocketClient webSocketClient(options.url, {
+				.connectTimeoutSeconds = options.connectTimeoutSeconds,
+				.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds });
+			webSocketClient.Run();
 		}
 
 	}

@@ -22,10 +22,15 @@ add_compile_options(
 	/wd4458 /wd4456
 )
 
+add_library(WebSocketClient WebSocketClient.cpp)
+target_link_libraries(WebSocketClient
+	PRIVATE ixwebsocket::ixwebsocket
+)
+
 add_executable(LGTVDeviceListener LGTVDeviceListener.cpp)
 target_link_libraries(LGTVDeviceListener
+	PRIVATE WebSocketClient
 	PRIVATE cxxopts::cxxopts
-	PRIVATE ixwebsocket::ixwebsocket
 	PRIVATE ws2_32
 )
 install(TARGETS LGTVDeviceListener)
