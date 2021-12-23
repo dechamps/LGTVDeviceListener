@@ -1,4 +1,4 @@
-#include "WebSocketClient.h"
+#include "LGTVClient.h"
 
 #include <cxxopts.hpp>
 
@@ -32,10 +32,9 @@ namespace LGTVDeviceListener {
 		}
 
 		void Run(const Options& options) {
-			WebSocketClient webSocketClient(options.url, {
+			ConnectToLGTV(options.url, {
 				.connectTimeoutSeconds = options.connectTimeoutSeconds,
 				.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds });
-			webSocketClient.Run();
 		}
 
 	}

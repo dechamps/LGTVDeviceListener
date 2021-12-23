@@ -15,7 +15,9 @@ namespace LGTVDeviceListener {
 
 		WebSocketClient(const std::string& url, const Options& options);
 
-		void Run();
+		void Run(const std::function<void()>& onOpen);
+
+		void Send(const std::string& data);
 		
 	private:
 		const int connectTimeoutSeconds;

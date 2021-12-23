@@ -24,12 +24,17 @@ add_compile_options(
 
 add_library(WebSocketClient WebSocketClient.cpp)
 target_link_libraries(WebSocketClient
-	PRIVATE ixwebsocket::ixwebsocket
+	PUBLIC ixwebsocket::ixwebsocket
+)
+
+add_library(LGTVClient LGTVClient.cpp)
+target_link_libraries(LGTVClient
+	PRIVATE WebSocketClient
 )
 
 add_executable(LGTVDeviceListener LGTVDeviceListener.cpp)
 target_link_libraries(LGTVDeviceListener
-	PRIVATE WebSocketClient
+	PRIVATE LGTVClient
 	PRIVATE cxxopts::cxxopts
 	PRIVATE ws2_32
 )

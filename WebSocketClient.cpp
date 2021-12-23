@@ -27,11 +27,16 @@ namespace LGTVDeviceListener {
 		webSocket.disableAutomaticReconnection();
 	}
 
-	void WebSocketClient::Run() {
-		webSocket.setOnMessageCallback([](const ix::WebSocketMessagePtr& webSocketMessage) {
+	void WebSocketClient::Run(const std::function<void()>& onOpen) {
+		webSocket.setOnMessageCallback([&](const ix::WebSocketMessagePtr& webSocketMessage) {
 			std::cerr << "OnMessageCallback(" << std::to_string(static_cast<int>(webSocketMessage->type)) << ")" << std::endl;
 
-			if (webSocketMessage->type == ix::WebSocketMessageType::Error) {
+			using Type = ix::WebSocketMessageType;
+			switch (webSocketMessage->type) {
+			case Type::Open: {
+				onOpen();
+			} break;
+			case Type::Error: {
 				const auto& errorInfo = webSocketMessage->errorInfo;
 				throw std::runtime_error(std::string("WebSocket client error: ") + errorInfo.reason +
 					" (retries: " + std::to_string(errorInfo.retries) +
@@ -39,12 +44,17 @@ namespace LGTVDeviceListener {
 					" ms, HTTP status: " + std::to_string(errorInfo.http_status) +
 					(errorInfo.decompressionError ? ", decompression error" : "") +
 					")");
+			} break;
 			}
 		});
 
 		IxNetSystemInitializer ixNetSystemInitializer;
 		webSocket.connect(connectTimeoutSeconds);
 		webSocket.run();
+	}
+
+	void WebSocketClient::Send(const std::string& data) {
+		webSocket.send(data);
 	}
 
 }
