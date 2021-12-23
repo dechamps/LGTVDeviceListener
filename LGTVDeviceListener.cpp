@@ -32,9 +32,9 @@ namespace LGTVDeviceListener {
 		}
 
 		void Run(const Options& options) {
-			ConnectToLGTV(options.url, {
+			std::cout << "Client key: " << RegisterWithLGTV(options.url, {
 				.connectTimeoutSeconds = options.connectTimeoutSeconds,
-				.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds });
+				.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds }) << std::endl;
 		}
 
 	}

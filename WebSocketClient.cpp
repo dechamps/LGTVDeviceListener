@@ -60,4 +60,8 @@ namespace LGTVDeviceListener {
 		webSocket.send(data);
 	}
 
+	void WebSocketClient::Close() {
+		webSocket.close();
+	}
+
 }

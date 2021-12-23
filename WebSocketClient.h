@@ -18,6 +18,7 @@ namespace LGTVDeviceListener {
 		void Run(const std::function<void()>& onOpen, const std::function<void(const std::string&)>& onMessage);
 
 		void Send(const std::string& data);
+		void Close();
 		
 	private:
 		const int connectTimeoutSeconds;

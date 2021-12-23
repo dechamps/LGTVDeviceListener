@@ -6,6 +6,6 @@
 
 namespace LGTVDeviceListener {
 
-	void ConnectToLGTV(const std::string& url, const WebSocketClient::Options& options);
+	std::string RegisterWithLGTV(const std::string& url, const WebSocketClient::Options& options);
 
 }
