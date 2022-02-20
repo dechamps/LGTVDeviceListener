@@ -9,8 +9,9 @@ set(CMAKE_CXX_STANDARD 20)
 add_compile_options(
 	/Zc:__cplusplus /utf-8
 
-	/WX /W4 /permissive-
-	/external:anglebrackets /external:W0
+	/permissive-
+	/WX /W4 /external:anglebrackets /external:W0
+	/analyze /analyze:external-
 
 	# Suppress warnings about shadowing declarations.
 	#
