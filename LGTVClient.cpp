@@ -67,19 +67,20 @@ namespace LGTVDeviceListener {
 			url, options,
 			[&](WebSocketClient& webSocketClient) {
 				webSocketClient.Send(GetRegisterRequest().dump());
-			},
-			[&](WebSocketClient& webSocketClient, const std::string& message) {
-				std::cerr << "MESSAGE: " << message << std::endl;
 
-				auto json = nlohmann::json::parse(message);
-				const auto type = json.at("type");
-				if (type == "error")
-					throw std::runtime_error("Received error response from LGTV: " + message);
+				return [&](const std::string& message) {
+					std::cerr << "MESSAGE: " << message << std::endl;
 
-				if (type != "registered") return;
-				clientKey = json.at("payload").at("client-key");
-				webSocketClient.Close();
-			});
+					auto json = nlohmann::json::parse(message);
+					const auto type = json.at("type");
+					if (type == "error")
+						throw std::runtime_error("Received error response from LGTV: " + message);
+
+					if (type != "registered") return;
+					clientKey = json.at("payload").at("client-key");
+					webSocketClient.Close();
+				};
+			});;
 		if (clientKey.empty())
 			throw std::runtime_error("LGTV did not provide any client key");
 		return clientKey;

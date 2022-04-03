@@ -20,10 +20,7 @@ namespace LGTVDeviceListener {
 
 	}
 
-	void WebSocketClient::Run(
-		const std::string& url, const Options& options,
-		std::function<void(WebSocketClient&)> onOpen,
-		std::function<void(WebSocketClient&, const std::string&)> onMessage) {
+	void WebSocketClient::Run(const std::string& url, const Options& options, const std::function<OnOpen>& onOpen) {
 		WebSocketClient webSocketClient;
 		auto& webSocket = webSocketClient.webSocket;
 
@@ -31,16 +28,19 @@ namespace LGTVDeviceListener {
 		webSocket.setHandshakeTimeout(options.handshakeTimeoutSeconds);
 		webSocket.disableAutomaticReconnection();
 
+		std::function<OnMessage> onMessage;
 		webSocket.setOnMessageCallback([&](const ix::WebSocketMessagePtr& webSocketMessage) {
 			std::cerr << "OnMessageCallback(" << std::to_string(static_cast<int>(webSocketMessage->type)) << ")" << std::endl;
 
 			using Type = ix::WebSocketMessageType;
 			switch (webSocketMessage->type) {
 			case Type::Message: {
-				onMessage(webSocketClient, webSocketMessage->str);
+				if (!onMessage) throw std::runtime_error("Unexpected ix::WebSocket message callback");
+				onMessage(webSocketMessage->str);
 			} break;
 			case Type::Open: {
-				onOpen(webSocketClient);
+				if (onMessage) throw std::runtime_error("ix::WebSocket delivered Open message twice");
+				onMessage = onOpen(webSocketClient);
 			} break;
 			case Type::Error: {
 				const auto& errorInfo = webSocketMessage->errorInfo;

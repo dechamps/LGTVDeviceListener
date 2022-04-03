@@ -16,10 +16,10 @@ namespace LGTVDeviceListener {
 		WebSocketClient(const WebSocketClient&) = delete;
 		WebSocketClient& operator=(const WebSocketClient&) = delete;
 
-		static void Run(
-			const std::string& url, const Options& options,
-			std::function<void(WebSocketClient&)> onOpen,
-			std::function<void(WebSocketClient&, const std::string&)> onMessage);
+		using OnMessage = void(const std::string&);
+		using OnOpen = std::function<OnMessage>(WebSocketClient&);
+		
+		static void Run(const std::string& url, const Options& options, const std::function<OnOpen>& onOpen);
 
 		void Send(const std::string& data);
 		void Close();
