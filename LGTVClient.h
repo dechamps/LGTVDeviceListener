@@ -27,7 +27,7 @@ namespace LGTVDeviceListener {
 
 		LGTVClient(ConstructorTag, WebSocketClient& webSocketClient, std::optional<std::string> clientKey, const std::function<OnRegistered>& onRegistered);
 
-		void SetInput(std::string input);
+		void SetInput(std::string input, std::function<void()> onDone);
 		void Close();
 
 	private:

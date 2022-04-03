@@ -60,8 +60,7 @@ namespace LGTVDeviceListener {
 				[&](LGTVClient& lgtvClient, std::string_view clientKey) {
 					std::cout << clientKey << std::endl;
 					
-					lgtvClient.SetInput("HDMI_2");
-					lgtvClient.Close();
+					lgtvClient.SetInput("HDMI_2", [&] { lgtvClient.Close(); });
 				});
 		}
 

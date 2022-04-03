@@ -104,13 +104,17 @@ namespace LGTVDeviceListener {
 		inflightRequests.erase(inflightRequest);
 	}
 
-	void LGTVClient::SetInput(std::string input) {
+	void LGTVClient::SetInput(std::string input, std::function<void()> onDone) {
 		IssueRequest({
 			{"type", "request"},
 			{"uri", "ssap://tv/switchInput"},
 			{"payload", {{"inputId", std::move(input)}}},
-		}, [&](std::string type, nlohmann::json payload) {
-			// TODO: handle response
+		}, [onDone = std::move(onDone)](std::string type, nlohmann::json payload) {
+			if (type != "response")
+				throw std::runtime_error("Unexpected response type from LGTV switchInput: " + type);
+			if (payload["returnValue"] != true)
+				throw std::runtime_error("Unexpected response payload from LGTV switchInput: " + payload);
+			onDone();
 		});
 	}
 
