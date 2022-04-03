@@ -1,7 +1,12 @@
 #pragma once
 
+#include <functional>
+#include <string_view>
+
 namespace LGTVDeviceListener {
 
-	void ListenToDeviceEvents();
+	enum class DeviceEventType { REMOVED, ADDED };
+
+	void ListenToDeviceEvents(const std::function<void(DeviceEventType, std::wstring_view deviceName)>& onEvent);
 
 }

@@ -17,13 +17,12 @@ namespace LGTVDeviceListener {
 			::cxxopts::Options cxxoptsOptions("LGTVDeviceListener", "LGTV Device Listener");
 			Options options;
 			cxxoptsOptions.add_options()
-				("url", "URL of the LGTV websocket. For example `ws://192.168.1.42:3000`", ::cxxopts::value(options.url))
+				("url", "URL of the LGTV websocket. For example `ws://192.168.1.42:3000`. If not specified, log device events only", ::cxxopts::value(options.url))
 				("client-key", "LGTV client key. For example `0123456789abcdef0123456789abcdef`", ::cxxopts::value(options.clientKey))
 				("connect-timeout-seconds", "How long to wait for the WebSocket connection to establish, in seconds", ::cxxopts::value(options.connectTimeoutSeconds))
 				("handshake-timeout-seconds", "How long to wait for the WebSocket handshake to complete, in seconds", ::cxxopts::value(options.handshakeTimeoutSeconds));
 			try {
 				cxxoptsOptions.parse(argc, argv);
-				if (options.url.empty()) throw std::runtime_error("`url` option must be specified");
 			}
 			catch (const std::exception& exception) {
 				std::cerr << "USAGE ERROR: " << exception.what() << std::endl;
@@ -35,14 +34,27 @@ namespace LGTVDeviceListener {
 		}
 
 		void Run(const Options& options) {
+			if (options.url.empty()) {
+				ListenToDeviceEvents([&](DeviceEventType deviceEventType, std::wstring_view deviceName) {
+					std::wstring_view deviceEventTypeString;
+					switch (deviceEventType) {
+					case DeviceEventType::ADDED:
+						deviceEventTypeString = L"ADDED";
+						break;
+					case DeviceEventType::REMOVED:
+						deviceEventTypeString = L"REMOVED";
+						break;
+					}
+					std::wcout << deviceEventTypeString << ": " << deviceName << std::endl;
+				});
+			}
+
 			if (options.clientKey.empty()) {
 				std::cout << "Client key: " << RegisterWithLGTV(options.url, {
 					.connectTimeoutSeconds = options.connectTimeoutSeconds,
 					.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds }) << std::endl;
 				return;
 			}
-
-			ListenToDeviceEvents();
 		}
 
 	}

@@ -10,24 +10,12 @@ namespace LGTVDeviceListener {
 
 	namespace {
 
-		LRESULT DeviceListenerWindowProcedure(HWND window, UINT messageIdentifier, WPARAM wParam, LPARAM lParam) {
-			if (messageIdentifier == WM_DEVICECHANGE) {
-				std::wcout << L"WM_DEVICECHANGE " << wParam << std::endl;
-				if (wParam == DBT_DEVICEARRIVAL || wParam == DBT_DEVICEREMOVECOMPLETE) {
-					const auto& deviceEventHeader = *reinterpret_cast<const DEV_BROADCAST_HDR*>(lParam);
-					if (deviceEventHeader.dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) {
-						const auto& deviceInterfaceEvent = reinterpret_cast<const ::DEV_BROADCAST_DEVICEINTERFACE_W&>(deviceEventHeader);
-						std::wcout << L"Device name: " << deviceInterfaceEvent.dbcc_name << std::endl;
-					}
-				}
-			}
-			return DefWindowProcW(window, messageIdentifier, wParam, lParam);
-		}
-
 		class Window final {
 		public:
-			Window() : windowHandle([&] {
-				const auto windowHandle = ::CreateWindowW(windowClassName, L"LGTVDeviceListener DeviceListener", 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, NULL, NULL);
+			using OnMessage = void(HWND window, UINT messageIdentifier, WPARAM wParam, LPARAM lParam);
+
+			Window(std::function<OnMessage> onMessage) : onMessage(std::move(onMessage)), windowHandle([&] {
+				const auto windowHandle = ::CreateWindowW(windowClassName, L"LGTVDeviceListener DeviceListener", 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, NULL, this);
 				if (windowHandle == NULL)
 					throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to create DeviceListener window");
 
@@ -42,6 +30,32 @@ namespace LGTVDeviceListener {
 			HWND GetWindowHandle() const { return windowHandle; }
 
 		private:
+			static void SetWindowUserDataOnCreate(HWND window, LPARAM lParam) {
+				::SetLastError(NO_ERROR);
+				::SetWindowLongPtrW(window, GWLP_USERDATA, (LONG_PTR)((::CREATESTRUCT*)lParam)->lpCreateParams);
+				const DWORD setWindowLongError = ::GetLastError();
+				if (setWindowLongError != NO_ERROR)
+					throw std::system_error(std::error_code(setWindowLongError, std::system_category()), "Unable to set GWLP_USERDATA");
+			}
+
+			static LONG_PTR GetWindowUserData(HWND window) {
+				::SetLastError(NO_ERROR);
+				const LONG_PTR windowUserData = ::GetWindowLongPtrW(window, GWLP_USERDATA);
+				const DWORD getWindowLongError = ::GetLastError();
+				if (getWindowLongError != NO_ERROR)
+					throw std::system_error(std::error_code(getWindowLongError, std::system_category()), "Unable to set GWLP_USERDATA");
+				return windowUserData;
+			}
+
+			static LRESULT WindowProcedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+				if (uMsg == WM_NCCREATE) SetWindowUserDataOnCreate(hwnd, lParam);
+
+				auto window = reinterpret_cast<Window*>(GetWindowUserData(hwnd));
+				if (window != NULL) window->onMessage(hwnd, uMsg, wParam, lParam);
+
+				return DefWindowProcW(hwnd, uMsg, wParam, lParam);
+			}
+
 			static constexpr LPCWSTR windowClassName = L"LGTVDeviceListener_DeviceListener";
 
 			class WindowClassRegistration final {
@@ -49,7 +63,7 @@ namespace LGTVDeviceListener {
 				WindowClassRegistration() {
 					const ::WNDCLASSW windowClass = {
 						.style = 0,
-						.lpfnWndProc = DeviceListenerWindowProcedure,
+						.lpfnWndProc = WindowProcedure,
 						.cbClsExtra = 0,
 						.cbWndExtra = 0,
 						.hInstance = NULL,
@@ -69,6 +83,7 @@ namespace LGTVDeviceListener {
 				~WindowClassRegistration() { UnregisterClassW(windowClassName, NULL); }
 			};
 
+			const std::function<OnMessage> onMessage;
 			WindowClassRegistration windowClassRegistration;
 			const HWND windowHandle;
 		};
@@ -112,8 +127,23 @@ namespace LGTVDeviceListener {
 
 	}
 
-	void ListenToDeviceEvents() {
-		Window window;
+	void ListenToDeviceEvents(const std::function<void(DeviceEventType, std::wstring_view deviceName)>& onEvent) {
+		Window window([&](HWND, UINT messageIdentifier, WPARAM wParam, LPARAM lParam) {
+			if (messageIdentifier != WM_DEVICECHANGE) return;
+
+			DeviceEventType deviceEventType;
+			switch (wParam) {
+			case DBT_DEVICEARRIVAL: deviceEventType = DeviceEventType::ADDED; break;
+			case DBT_DEVICEREMOVECOMPLETE: deviceEventType = DeviceEventType::REMOVED; break;
+			default: return;
+			}
+
+			const auto& deviceEventHeader = *reinterpret_cast<const DEV_BROADCAST_HDR*>(lParam);
+			if (deviceEventHeader.dbch_devicetype != DBT_DEVTYP_DEVICEINTERFACE) return;
+
+			const auto& deviceInterfaceEvent = reinterpret_cast<const ::DEV_BROADCAST_DEVICEINTERFACE_W&>(deviceEventHeader);
+			onEvent(deviceEventType, deviceInterfaceEvent.dbcc_name);
+		});
 		DeviceNotificationRegistration deviceNotificationRegistration(window.GetWindowHandle());
 		RunWindowMessageLoop(window.GetWindowHandle());
 	}
