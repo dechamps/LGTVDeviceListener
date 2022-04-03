@@ -7,7 +7,7 @@ namespace LGTVDeviceListener {
 	namespace {
 
 		struct Options final {
-			std::string url;
+			std::optional<std::string> url;
 			std::optional<std::string> clientKey;
 			int connectTimeoutSeconds = WebSocketClient::Options().connectTimeoutSeconds;
 			int handshakeTimeoutSeconds = WebSocketClient::Options().handshakeTimeoutSeconds;
@@ -34,7 +34,7 @@ namespace LGTVDeviceListener {
 		}
 
 		void Run(const Options& options) {
-			if (options.url.empty()) {
+			if (!options.url.has_value()) {
 				ListenToDeviceEvents([&](DeviceEventType deviceEventType, std::wstring_view deviceName) {
 					std::wstring_view deviceEventTypeString;
 					switch (deviceEventType) {
@@ -47,10 +47,11 @@ namespace LGTVDeviceListener {
 					}
 					std::wcout << deviceEventTypeString << ": " << deviceName << std::endl;
 				});
+				return;
 			}
 
 			LGTVClient::Run(
-				options.url,
+				*options.url,
 				{
 					.clientKey = options.clientKey, .webSocketClientOptions = {
 						.connectTimeoutSeconds = options.connectTimeoutSeconds,
