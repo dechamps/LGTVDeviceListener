@@ -62,11 +62,13 @@ namespace LGTVDeviceListener {
 	}
 
 	std::string RegisterWithLGTV(const std::string& url, const WebSocketClient::Options& options) {
-		WebSocketClient webSocketClient(url, options);
 		std::string clientKey;
-		webSocketClient.Run(
-			[&] { webSocketClient.Send(GetRegisterRequest().dump()); },
-			[&](const std::string& message) {
+		WebSocketClient::Run(
+			url, options,
+			[&](WebSocketClient& webSocketClient) {
+				webSocketClient.Send(GetRegisterRequest().dump());
+			},
+			[&](WebSocketClient& webSocketClient, const std::string& message) {
 				std::cerr << "MESSAGE: " << message << std::endl;
 
 				auto json = nlohmann::json::parse(message);

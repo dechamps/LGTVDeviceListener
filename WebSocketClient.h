@@ -13,15 +13,20 @@ namespace LGTVDeviceListener {
 			int handshakeTimeoutSeconds = 5;
 		};
 
-		WebSocketClient(const std::string& url, const Options& options);
+		WebSocketClient(const WebSocketClient&) = delete;
+		WebSocketClient& operator=(const WebSocketClient&) = delete;
 
-		void Run(const std::function<void()>& onOpen, const std::function<void(const std::string&)>& onMessage);
+		static void Run(
+			const std::string& url, const Options& options,
+			std::function<void(WebSocketClient&)> onOpen,
+			std::function<void(WebSocketClient&, const std::string&)> onMessage);
 
 		void Send(const std::string& data);
 		void Close();
 		
 	private:
-		const int connectTimeoutSeconds;
+		WebSocketClient() = default;
+
 		ix::WebSocket webSocket;
 	};
 

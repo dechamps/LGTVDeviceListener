@@ -20,24 +20,27 @@ namespace LGTVDeviceListener {
 
 	}
 
-	WebSocketClient::WebSocketClient(const std::string& url, const Options& options) :
-		connectTimeoutSeconds(options.connectTimeoutSeconds) {
+	void WebSocketClient::Run(
+		const std::string& url, const Options& options,
+		std::function<void(WebSocketClient&)> onOpen,
+		std::function<void(WebSocketClient&, const std::string&)> onMessage) {
+		WebSocketClient webSocketClient;
+		auto& webSocket = webSocketClient.webSocket;
+
 		webSocket.setUrl(url);
 		webSocket.setHandshakeTimeout(options.handshakeTimeoutSeconds);
 		webSocket.disableAutomaticReconnection();
-	}
 
-	void WebSocketClient::Run(const std::function<void()>& onOpen, const std::function<void(const std::string&)>& onMessage) {
 		webSocket.setOnMessageCallback([&](const ix::WebSocketMessagePtr& webSocketMessage) {
 			std::cerr << "OnMessageCallback(" << std::to_string(static_cast<int>(webSocketMessage->type)) << ")" << std::endl;
 
 			using Type = ix::WebSocketMessageType;
 			switch (webSocketMessage->type) {
 			case Type::Message: {
-				onMessage(webSocketMessage->str);
+				onMessage(webSocketClient, webSocketMessage->str);
 			} break;
 			case Type::Open: {
-				onOpen();
+				onOpen(webSocketClient);
 			} break;
 			case Type::Error: {
 				const auto& errorInfo = webSocketMessage->errorInfo;
@@ -52,7 +55,7 @@ namespace LGTVDeviceListener {
 		});
 
 		IxNetSystemInitializer ixNetSystemInitializer;
-		webSocket.connect(connectTimeoutSeconds);
+		webSocket.connect(options.connectTimeoutSeconds);
 		webSocket.run();
 	}
 
