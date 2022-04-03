@@ -6,6 +6,24 @@
 
 namespace LGTVDeviceListener {
 
-	std::string RegisterWithLGTV(const std::string& url, const WebSocketClient::Options& options);
+	class LGTVClient final {
+	public:
+		struct Options final {
+			std::optional<std::string> clientKey;
+			WebSocketClient::Options webSocketClientOptions;
+		};
+
+		LGTVClient(const LGTVClient&) = delete;
+		LGTVClient& operator=(const LGTVClient&) = delete;
+
+		static void Run(const std::string& url, const Options& options, const std::function<void(LGTVClient&, std::string_view clientKey)>& onRegistered);
+
+		void Close();
+
+	private:
+		LGTVClient(WebSocketClient& webSocketClient) : webSocketClient(webSocketClient) {}
+
+		WebSocketClient& webSocketClient;
+	};
 
 }

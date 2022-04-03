@@ -8,7 +8,7 @@ namespace LGTVDeviceListener {
 
 		struct Options final {
 			std::string url;
-			std::string clientKey;
+			std::optional<std::string> clientKey;
 			int connectTimeoutSeconds = WebSocketClient::Options().connectTimeoutSeconds;
 			int handshakeTimeoutSeconds = WebSocketClient::Options().handshakeTimeoutSeconds;
 		};
@@ -18,7 +18,7 @@ namespace LGTVDeviceListener {
 			Options options;
 			cxxoptsOptions.add_options()
 				("url", "URL of the LGTV websocket. For example `ws://192.168.1.42:3000`. If not specified, log device events only", ::cxxopts::value(options.url))
-				("client-key", "LGTV client key. For example `0123456789abcdef0123456789abcdef`", ::cxxopts::value(options.clientKey))
+				("client-key", "LGTV client key. For example `0123456789abcdef0123456789abcdef`. If not specified, will register a new key", ::cxxopts::value(options.clientKey))
 				("connect-timeout-seconds", "How long to wait for the WebSocket connection to establish, in seconds", ::cxxopts::value(options.connectTimeoutSeconds))
 				("handshake-timeout-seconds", "How long to wait for the WebSocket handshake to complete, in seconds", ::cxxopts::value(options.handshakeTimeoutSeconds));
 			try {
@@ -49,12 +49,17 @@ namespace LGTVDeviceListener {
 				});
 			}
 
-			if (options.clientKey.empty()) {
-				std::cout << "Client key: " << RegisterWithLGTV(options.url, {
-					.connectTimeoutSeconds = options.connectTimeoutSeconds,
-					.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds }) << std::endl;
-				return;
-			}
+			LGTVClient::Run(
+				options.url,
+				{
+					.clientKey = options.clientKey, .webSocketClientOptions = {
+						.connectTimeoutSeconds = options.connectTimeoutSeconds,
+						.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds }
+				},
+				[&](LGTVClient& lgtvClient, std::string_view clientKey) {
+					std::cout << clientKey << std::endl;
+					lgtvClient.Close();
+				});
 		}
 
 	}
