@@ -31,10 +31,14 @@ namespace LGTVDeviceListener {
 		void Close();
 
 	private:
-		void Send(const nlohmann::json& message);
+		using OnResponse = void(std::string type, nlohmann::json payload);
+
+		void IssueRequest(nlohmann::json request, std::function<OnResponse> onResponse);
+		void OnMessage(const nlohmann::json& message);
 
 		WebSocketClient& webSocketClient;
-		std::function<void(std::string type, nlohmann::json payload)> onMessage;
+		uint32_t lastRequestId = 0;
+		std::unordered_map<uint32_t, std::function<OnResponse>> inflightRequests;
 	};
 
 }

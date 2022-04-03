@@ -69,38 +69,48 @@ namespace LGTVDeviceListener {
 				lgtvClient.emplace(ConstructorTag(), webSocketClient, std::move(options.clientKey), onRegistered);
 				return [&lgtvClient = *lgtvClient](const std::string& message) {
 					std::cerr << "MESSAGE: " << message << std::endl;
-
-					auto json = nlohmann::json::parse(message);
-					auto type = json.at("type");
-					if (type == "error")
-						throw std::runtime_error("Received error response from LGTV: " + message);
-					
-					auto& onMessage = lgtvClient.onMessage;
-					if (onMessage) onMessage(std::move(type), std::move(json.at("payload")));
+					lgtvClient.OnMessage(nlohmann::json::parse(message));
 				};
 			});;
 	}
 
 	LGTVClient::LGTVClient(ConstructorTag, WebSocketClient& webSocketClient, std::optional<std::string> clientKey, const std::function<OnRegistered>& onRegistered) :
-		webSocketClient(webSocketClient),
-		onMessage([&](std::string type, nlohmann::json payload) {
+		webSocketClient(webSocketClient) {
+		IssueRequest(GetRegisterRequest(std::move(clientKey)), [&](std::string type, nlohmann::json payload) {
 			if (type != "registered") return;
 			onRegistered(*this, payload.at("client-key"));
-			onMessage = nullptr;
-		}) {
-		Send(GetRegisterRequest(std::move(clientKey)));
+		});
 	}
 
-	void LGTVClient::Send(const nlohmann::json& message) {
-		std::cout << "Sending: " << message << std::endl;
-		webSocketClient.Send(message.dump());
+	void LGTVClient::IssueRequest(nlohmann::json request, std::function<OnResponse> onResponse) {
+		const auto requestId = ++lastRequestId;
+		request["id"] = requestId;
+		inflightRequests.insert({requestId, std::move(onResponse)});
+
+		std::cout << "Sending: " << request << std::endl;
+		webSocketClient.Send(request.dump());
+	}
+
+	void LGTVClient::OnMessage(const nlohmann::json& message) {
+		auto type = message.at("type");
+		if (type == "error")
+			throw std::runtime_error("Received error response from LGTV: " + message);
+
+		const auto inflightRequest = inflightRequests.find(message.at("id"));
+		if (inflightRequest == inflightRequests.end())
+			throw std::runtime_error("Unexpected response from LGTV: " + message);
+
+		inflightRequest->second(std::move(type), std::move(message.at("payload")));
+		inflightRequests.erase(inflightRequest);
 	}
 
 	void LGTVClient::SetInput(std::string input) {
-		Send({
+		IssueRequest({
 			{"type", "request"},
 			{"uri", "ssap://tv/switchInput"},
 			{"payload", {{"inputId", std::move(input)}}},
+		}, [&](std::string type, nlohmann::json payload) {
+			// TODO: handle response
 		});
 	}
 
