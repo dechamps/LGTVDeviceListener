@@ -13,6 +13,7 @@ namespace LGTVDeviceListener {
 
 			nlohmann::json payload = {
 				{"manifest", {
+					{"permissions", {"LAUNCH"}},
 					{"signatures", {{
 						{"signature",
 							"eyJhbGdvcml0aG0iOiJSU0EtU0hBMjU2Iiwia2V5SWQiOiJ0ZXN0LXNpZ25pbm"
@@ -64,25 +65,46 @@ namespace LGTVDeviceListener {
 	}
 
 	void LGTVClient::Run(const std::string& url, const Options& options, const std::function<void(LGTVClient&, std::string_view clientKey)>& onRegistered) {
+		std::optional<LGTVClient> lgtvClient;
 		WebSocketClient::Run(
 			url, options.webSocketClientOptions,
 			[&](WebSocketClient& webSocketClient) {
-				webSocketClient.Send(GetRegisterRequest(std::move(options.clientKey)).dump());
-
-				return [&](const std::string& message) {
+				lgtvClient.emplace(ConstructorTag(), webSocketClient, std::move(options.clientKey), onRegistered);
+				return [&lgtvClient = *lgtvClient](const std::string& message) {
 					std::cerr << "MESSAGE: " << message << std::endl;
 
 					auto json = nlohmann::json::parse(message);
-					const auto type = json.at("type");
+					auto type = json.at("type");
 					if (type == "error")
 						throw std::runtime_error("Received error response from LGTV: " + message);
-
-					if (type != "registered") return;
-
-					LGTVClient lgtvClient(webSocketClient);
-					onRegistered(lgtvClient, json.at("payload").at("client-key"));
+					
+					auto& onMessage = lgtvClient.onMessage;
+					if (onMessage) onMessage(std::move(type), std::move(json.at("payload")));
 				};
 			});;
+	}
+
+	LGTVClient::LGTVClient(ConstructorTag, WebSocketClient& webSocketClient, std::optional<std::string> clientKey, const std::function<OnRegistered>& onRegistered) :
+		webSocketClient(webSocketClient),
+		onMessage([&](std::string type, nlohmann::json payload) {
+			if (type != "registered") return;
+			onRegistered(*this, payload.at("client-key"));
+			onMessage = nullptr;
+		}) {
+		Send(GetRegisterRequest(std::move(clientKey)));
+	}
+
+	void LGTVClient::Send(const nlohmann::json& message) {
+		std::cout << "Sending: " << message << std::endl;
+		webSocketClient.Send(message.dump());
+	}
+
+	void LGTVClient::SetInput(std::string input) {
+		Send({
+			{"type", "request"},
+			{"uri", "ssap://tv/switchInput"},
+			{"payload", {{"inputId", std::move(input)}}},
+		});
 	}
 
 	void LGTVClient::Close() { webSocketClient.Close(); }
