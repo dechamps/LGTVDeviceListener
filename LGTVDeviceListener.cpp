@@ -1,3 +1,4 @@
+#include "DeviceListener.h"
 #include "LGTVClient.h"
 
 #include <cxxopts.hpp>
@@ -40,6 +41,8 @@ namespace LGTVDeviceListener {
 					.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds }) << std::endl;
 				return;
 			}
+
+			ListenToDeviceEvents();
 		}
 
 	}
