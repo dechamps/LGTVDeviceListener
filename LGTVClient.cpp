@@ -77,8 +77,9 @@ namespace LGTVDeviceListener {
 	LGTVClient::LGTVClient(ConstructorTag, WebSocketClient& webSocketClient, std::optional<std::string> clientKey, const std::function<OnRegistered>& onRegistered) :
 		webSocketClient(webSocketClient) {
 		IssueRequest(GetRegisterRequest(std::move(clientKey)), [&](std::string type, nlohmann::json payload) {
-			if (type != "registered") return;
+			if (type != "registered") return false;
 			onRegistered(*this, payload.at("client-key"));
+			return true;
 		});
 	}
 
@@ -100,8 +101,8 @@ namespace LGTVDeviceListener {
 		if (inflightRequest == inflightRequests.end())
 			throw std::runtime_error("Unexpected response from LGTV: " + message);
 
-		inflightRequest->second(std::move(type), std::move(message.at("payload")));
-		inflightRequests.erase(inflightRequest);
+		if (inflightRequest->second(std::move(type), std::move(message.at("payload"))))
+			inflightRequests.erase(inflightRequest);
 	}
 
 	void LGTVClient::SetInput(std::string input, std::function<void()> onDone) {
@@ -115,6 +116,7 @@ namespace LGTVDeviceListener {
 			if (payload["returnValue"] != true)
 				throw std::runtime_error("Unexpected response payload from LGTV switchInput: " + payload);
 			onDone();
+			return true;
 		});
 	}
 

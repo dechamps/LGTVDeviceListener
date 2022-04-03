@@ -31,7 +31,7 @@ namespace LGTVDeviceListener {
 		void Close();
 
 	private:
-		using OnResponse = void(std::string type, nlohmann::json payload);
+		using OnResponse = bool(std::string type, nlohmann::json payload);
 
 		void IssueRequest(nlohmann::json request, std::function<OnResponse> onResponse);
 		void OnMessage(const nlohmann::json& message);
