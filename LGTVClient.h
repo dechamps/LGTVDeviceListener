@@ -22,6 +22,7 @@ namespace LGTVDeviceListener {
 
 	private:
 		LGTVClient(WebSocketClient& webSocketClient) : webSocketClient(webSocketClient) {}
+		~LGTVClient() = default;
 
 		WebSocketClient& webSocketClient;
 	};

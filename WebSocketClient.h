@@ -26,6 +26,7 @@ namespace LGTVDeviceListener {
 		
 	private:
 		WebSocketClient() = default;
+		~WebSocketClient() = default;
 
 		ix::WebSocket webSocket;
 	};
