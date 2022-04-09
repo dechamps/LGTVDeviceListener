@@ -1,5 +1,6 @@
 #include "DeviceListener.h"
 
+#include "StringUtil.h"
 #include "Log.h"
 
 #include <Windows.h>
@@ -50,11 +51,18 @@ namespace LGTVDeviceListener {
 			}
 
 			static LRESULT WindowProcedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-				if (uMsg == WM_NCCREATE) SetWindowUserDataOnCreate(hwnd, lParam);
+				try {
+					if (uMsg == WM_NCCREATE) SetWindowUserDataOnCreate(hwnd, lParam);
 
-				auto window = reinterpret_cast<Window*>(GetWindowUserData(hwnd));
-				if (window != NULL) window->onMessage(hwnd, uMsg, wParam, lParam);
-
+					auto window = reinterpret_cast<Window*>(GetWindowUserData(hwnd));
+					if (window != NULL) window->onMessage(hwnd, uMsg, wParam, lParam);
+				}
+				catch (const std::exception& exception) {
+					Log(Log::Level::NORMAL) << L"ERROR in device event listener: " << ToWideString(exception.what(), CP_ACP);
+				}
+				catch (...) {
+					Log(Log::Level::NORMAL) << L"UNKNOWN ERROR in device event listener";
+				}
 				return DefWindowProcW(hwnd, uMsg, wParam, lParam);
 			}
 

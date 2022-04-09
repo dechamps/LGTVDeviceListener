@@ -30,6 +30,7 @@ add_library(Log Log.cpp)
 
 add_library(DeviceListener DeviceListener.cpp)
 target_link_libraries(DeviceListener
+	PRIVATE StringUtil
 	PRIVATE Log
 )
 
