@@ -1,5 +1,8 @@
 ﻿#include "LGTVClient.h"
 
+#include "StringUtil.h"
+#include "Log.h"
+
 #include <nlohmann/json.hpp>
 
 #include <iostream>
@@ -68,7 +71,7 @@ namespace LGTVDeviceListener {
 			[&](WebSocketClient& webSocketClient) {
 				lgtvClient.emplace(ConstructorTag(), webSocketClient, std::move(options.clientKey), onRegistered);
 				return [&lgtvClient = *lgtvClient](const std::string& message) {
-					std::cerr << "MESSAGE: " << message << std::endl;
+					Log() << "Received message from LGTV: " << ToWideString(message, CP_UTF8);
 					lgtvClient.OnMessage(nlohmann::json::parse(message));
 				};
 			});;
@@ -88,7 +91,8 @@ namespace LGTVDeviceListener {
 		request["id"] = requestId;
 		inflightRequests.insert({requestId, std::move(onResponse)});
 
-		std::cout << "Sending: " << request << std::endl;
+		const auto requestString = request.dump();
+		Log() << "Sending message to LGTV: " << ToWideString(requestString, CP_UTF8);
 		webSocketClient.Send(request.dump());
 	}
 

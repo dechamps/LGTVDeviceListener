@@ -1,6 +1,7 @@
 #include "DeviceListener.h"
 #include "LGTVClient.h"
 #include "StringUtil.h"
+#include "Log.h"
 
 #include <cxxopts.hpp>
 
@@ -32,9 +33,7 @@ namespace LGTVDeviceListener {
 				cxxoptsOptions.parse(argc, argv);
 			}
 			catch (const std::exception& exception) {
-				std::cerr << "USAGE ERROR: " << exception.what() << std::endl;
-				std::cerr << std::endl;
-				std::cerr << cxxoptsOptions.help() << std::endl;
+				Log() << "USAGE ERROR: " << ToWideString(exception.what(), CP_ACP) << "\r\n\r\n" << ToWideString(cxxoptsOptions.help(), CP_UTF8);
 				return std::nullopt;
 			}
 			return options;
@@ -47,27 +46,29 @@ namespace LGTVDeviceListener {
 			};
 
 			std::optional<std::string> clientKey = *options.clientKey;
-			if (!clientKey.has_value() && options.url.has_value())
+			if (!clientKey.has_value() && options.url.has_value()) {
+				Log() << "Registering new client key with LGTV";
 				LGTVClient::Run(
 					*options.url, { .webSocketClientOptions = webSocketClientOptions },
 					[&](LGTVClient& lgtvClient, std::string_view newClientKey) {
-						std::cout << newClientKey << std::endl;
+						Log() << "LGTV client key: " << ToWideString(newClientKey, CP_UTF8);
 						clientKey = newClientKey;
 						lgtvClient.Close();
 					});
+			}
 
 			const auto expectedDeviceName = options.deviceName.has_value() ? std::optional<std::wstring>(ToWideString(*options.deviceName, CP_ACP)) : std::nullopt;
 			ListenToDeviceEvents([&](DeviceEventType deviceEventType, std::wstring_view deviceName) {
 				std::wstring_view deviceEventTypeString;
 				switch (deviceEventType) {
 				case DeviceEventType::ADDED:
-					deviceEventTypeString = L"ADDED";
+					deviceEventTypeString = L"added";
 					break;
 				case DeviceEventType::REMOVED:
-					deviceEventTypeString = L"REMOVED";
+					deviceEventTypeString = L"removed";
 					break;
 				}
-				std::wcout << deviceEventTypeString << ": " << deviceName << std::endl;
+				Log() << "Device " << deviceEventTypeString << ": " << deviceName;
 
 				if (!options.url.has_value() || deviceName != expectedDeviceName) return;
 
@@ -82,6 +83,7 @@ namespace LGTVDeviceListener {
 				LGTVClient::Run(
 					*options.url, { .clientKey = clientKey, .webSocketClientOptions = webSocketClientOptions },
 					[&](LGTVClient& lgtvClient, std::string_view) {
+						Log() << "Switching LGTV to input: " << ToWideString(*input, CP_UTF8);
 						lgtvClient.SetInput(*input, [&] { lgtvClient.Close(); });
 					});
 			});

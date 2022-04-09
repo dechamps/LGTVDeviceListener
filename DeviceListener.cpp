@@ -1,5 +1,7 @@
 #include "DeviceListener.h"
 
+#include "Log.h"
+
 #include <Windows.h>
 #include <Dbt.h>
 
@@ -145,6 +147,7 @@ namespace LGTVDeviceListener {
 			onEvent(deviceEventType, deviceInterfaceEvent.dbcc_name);
 		});
 		DeviceNotificationRegistration deviceNotificationRegistration(window.GetWindowHandle());
+		Log() << "Listening for device events";
 		RunWindowMessageLoop(window.GetWindowHandle());
 	}
 

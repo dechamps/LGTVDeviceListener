@@ -26,7 +26,12 @@ add_compile_options(
 
 add_library(StringUtil StringUtil.cpp)
 
+add_library(Log Log.cpp)
+
 add_library(DeviceListener DeviceListener.cpp)
+target_link_libraries(DeviceListener
+	PRIVATE Log
+)
 
 add_library(WebSocketClient WebSocketClient.cpp)
 target_link_libraries(WebSocketClient
@@ -35,6 +40,8 @@ target_link_libraries(WebSocketClient
 
 add_library(LGTVClient LGTVClient.cpp)
 target_link_libraries(LGTVClient
+	PRIVATE StringUtil
+	PRIVATE Log
 	PRIVATE WebSocketClient
 	PRIVATE nlohmann_json
 )
@@ -42,6 +49,7 @@ target_link_libraries(LGTVClient
 add_executable(LGTVDeviceListener LGTVDeviceListener.cpp)
 target_link_libraries(LGTVDeviceListener
 	PRIVATE StringUtil
+	PRIVATE Log
 	PRIVATE DeviceListener
 	PRIVATE LGTVClient
 	PRIVATE cxxopts::cxxopts

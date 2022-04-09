@@ -1,5 +1,7 @@
 #include "WebSocketClient.h"
 
+#include "Log.h"
+
 #include <ixwebsocket/IXNetSystem.h>
 
 #include <iostream>
@@ -30,8 +32,6 @@ namespace LGTVDeviceListener {
 
 		std::function<OnMessage> onMessage;
 		webSocket.setOnMessageCallback([&](const ix::WebSocketMessagePtr& webSocketMessage) {
-			std::cerr << "OnMessageCallback(" << std::to_string(static_cast<int>(webSocketMessage->type)) << ")" << std::endl;
-
 			using Type = ix::WebSocketMessageType;
 			switch (webSocketMessage->type) {
 			case Type::Message: {
