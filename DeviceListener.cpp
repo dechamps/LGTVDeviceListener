@@ -147,7 +147,7 @@ namespace LGTVDeviceListener {
 			onEvent(deviceEventType, deviceInterfaceEvent.dbcc_name);
 		});
 		DeviceNotificationRegistration deviceNotificationRegistration(window.GetWindowHandle());
-		Log() << "Listening for device events";
+		Log(Log::Level::NORMAL) << L"Listening for device events";
 		RunWindowMessageLoop(window.GetWindowHandle());
 	}
 

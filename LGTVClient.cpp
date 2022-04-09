@@ -71,7 +71,7 @@ namespace LGTVDeviceListener {
 			[&](WebSocketClient& webSocketClient) {
 				lgtvClient.emplace(ConstructorTag(), webSocketClient, std::move(options.clientKey), onRegistered);
 				return [&lgtvClient = *lgtvClient](const std::string& message) {
-					Log() << "Received message from LGTV: " << ToWideString(message, CP_UTF8);
+					Log(Log::Level::VERBOSE) << L"Received message from LGTV: " << ToWideString(message, CP_UTF8);
 					lgtvClient.OnMessage(nlohmann::json::parse(message));
 				};
 			});;
@@ -92,7 +92,7 @@ namespace LGTVDeviceListener {
 		inflightRequests.insert({requestId, std::move(onResponse)});
 
 		const auto requestString = request.dump();
-		Log() << "Sending message to LGTV: " << ToWideString(requestString, CP_UTF8);
+		Log(Log::Level::VERBOSE) << L"Sending message to LGTV: " << ToWideString(requestString, CP_UTF8);
 		webSocketClient.Send(request.dump());
 	}
 
