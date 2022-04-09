@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Windows.h>
+
 #include <optional>
 #include <sstream>
 
@@ -7,8 +9,11 @@ namespace LGTVDeviceListener {
 
 	class Log final {
 	public:
+		enum class Channel { STDERR, WINDOWS_EVENT_LOG };
+
 		struct Options final {
 			bool verbose = false;
+			Channel channel = Channel::STDERR;
 		};
 		static void Initialize(Options);
 
@@ -28,7 +33,11 @@ namespace LGTVDeviceListener {
 		}
 
 	private:
-		static std::optional<Options> options;
+		struct State {
+			bool verbose = false;
+			HANDLE windowsEventLog = NULL;
+		};
+		static std::optional<State> state;
 
 		std::optional<std::wstringstream> stream;
 	};

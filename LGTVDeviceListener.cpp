@@ -15,6 +15,7 @@ namespace LGTVDeviceListener {
 			std::optional<std::string> addInput;
 			std::optional<std::string> removeInput;
 			bool verbose = false;
+			bool windowsEventLog = false;
 			int connectTimeoutSeconds = WebSocketClient::Options().connectTimeoutSeconds;
 			int handshakeTimeoutSeconds = WebSocketClient::Options().handshakeTimeoutSeconds;
 		};
@@ -29,6 +30,7 @@ namespace LGTVDeviceListener {
 				("add-input", "Which TV input to switch to when the device is added. For example `HDMI_1`. If not specified, does nothing on add", ::cxxopts::value(options.addInput))
 				("remove-input", "Which TV input to switch to when the device is removed. For example `HDMI_2`. If not specified, does nothing on remove", ::cxxopts::value(options.removeInput))
 				("verbose", "Enable verbose logging", ::cxxopts::value(options.verbose))
+				("windows-event-log", "Send log messages to the Windows Event log instead of STDERR", ::cxxopts::value(options.windowsEventLog))
 				("connect-timeout-seconds", "How long to wait for the WebSocket connection to establish, in seconds", ::cxxopts::value(options.connectTimeoutSeconds))
 				("handshake-timeout-seconds", "How long to wait for the WebSocket handshake to complete, in seconds", ::cxxopts::value(options.handshakeTimeoutSeconds));
 			try {
@@ -43,7 +45,10 @@ namespace LGTVDeviceListener {
 		}
 
 		void Run(const Options& options) {
-			Log::Initialize({ .verbose = options.verbose });
+			Log::Initialize({
+				.verbose = options.verbose,
+				.channel = options.windowsEventLog ? Log::Channel::WINDOWS_EVENT_LOG : Log::Channel::STDERR
+			});
 			try {
 				const WebSocketClient::Options webSocketClientOptions = {
 					.connectTimeoutSeconds = options.connectTimeoutSeconds,

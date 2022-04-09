@@ -1,8 +1,8 @@
 #include "WebSocketClient.h"
 
-#include "Log.h"
-
 #include <ixwebsocket/IXNetSystem.h>
+
+#include "Log.h"
 
 #include <iostream>
 
