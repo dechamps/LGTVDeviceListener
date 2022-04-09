@@ -50,7 +50,7 @@ namespace LGTVDeviceListener {
 					.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds
 				};
 
-				std::optional<std::string> clientKey = *options.clientKey;
+				std::optional<std::string> clientKey = options.clientKey;
 				if (!clientKey.has_value() && options.url.has_value()) {
 					Log(Log::Level::NORMAL) << L"Registering new client key with LGTV";
 					LGTVClient::Run(
