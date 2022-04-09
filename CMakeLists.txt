@@ -24,6 +24,8 @@ add_compile_options(
 	/wd4458 /wd4456
 )
 
+add_library(StringUtil StringUtil.cpp)
+
 add_library(DeviceListener DeviceListener.cpp)
 
 add_library(WebSocketClient WebSocketClient.cpp)
@@ -39,6 +41,7 @@ target_link_libraries(LGTVClient
 
 add_executable(LGTVDeviceListener LGTVDeviceListener.cpp)
 target_link_libraries(LGTVDeviceListener
+	PRIVATE StringUtil
 	PRIVATE DeviceListener
 	PRIVATE LGTVClient
 	PRIVATE cxxopts::cxxopts
