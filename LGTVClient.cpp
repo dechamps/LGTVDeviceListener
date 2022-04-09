@@ -101,7 +101,7 @@ namespace LGTVDeviceListener {
 		if (inflightRequest == inflightRequests.end())
 			throw std::runtime_error("Unexpected response from LGTV: " + message);
 
-		if (inflightRequest->second(std::move(type), std::move(message.at("payload"))))
+		if (inflightRequest->second(std::move(type), message.at("payload")))
 			inflightRequests.erase(inflightRequest);
 	}
 
