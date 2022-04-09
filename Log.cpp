@@ -37,7 +37,11 @@ namespace LGTVDeviceListener {
 				/*hEventLog=*/windowsEventLog,
 				/*wType*/EVENTLOG_INFORMATION_TYPE,
 				/*wCategory=*/0,
-				/*dwEventID=*/0,
+				// We don't have a registered event source to pull messages from, so the EventId is meaningless.
+				// In this situation, the Event Viewer will look up the EventID in the system message table, i.e. 0 translates to "The operation completed successfully".
+				// Obviously this would be quite confusing so we use MAXDWORD to make sure that lookup will fail.
+				// The result still isn't ideal as the Event Viewer complains that it can't find the message, but that's the best we can do without going through the tedious source registration mechanism.
+				/*dwEventID=*/MAXDWORD,
 				/*lpUserSid=*/NULL,
 				/*wNumStrings=*/1,
 				/*dwDataSize=*/0,
