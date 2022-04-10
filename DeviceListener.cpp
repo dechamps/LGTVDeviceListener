@@ -137,7 +137,9 @@ namespace LGTVDeviceListener {
 
 	}
 
-	void ListenToDeviceEvents(const std::function<void(DeviceEventType, std::wstring_view deviceName)>& onEvent) {
+	void ListenToDeviceEvents(
+		const std::function<void()>& onReady,
+		const std::function<void(DeviceEventType, std::wstring_view deviceName)>& onEvent) {
 		Window window([&](HWND, UINT messageIdentifier, WPARAM wParam, LPARAM lParam) {
 			if (messageIdentifier != WM_DEVICECHANGE) return;
 
@@ -155,7 +157,7 @@ namespace LGTVDeviceListener {
 			onEvent(deviceEventType, deviceInterfaceEvent.dbcc_name);
 		});
 		DeviceNotificationRegistration deviceNotificationRegistration(window.GetWindowHandle());
-		Log(Log::Level::INFO) << L"Listening for device events";
+		onReady();
 		RunWindowMessageLoop(window.GetWindowHandle());
 	}
 

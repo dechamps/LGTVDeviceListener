@@ -86,7 +86,7 @@ namespace LGTVDeviceListener {
 				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to create service");
 		}
 
-		void RunDeviceListener(const Options& options) {
+		void RunDeviceListener(const Options& options, const std::function<void()>& onReady) {
 			const WebSocketClient::Options webSocketClientOptions = {
 				.connectTimeoutSeconds = options.connectTimeoutSeconds,
 				.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds
@@ -105,7 +105,12 @@ namespace LGTVDeviceListener {
 			}
 
 			const auto expectedDeviceName = options.deviceName.has_value() ? std::optional<std::wstring>(ToWideString(*options.deviceName, CP_ACP)) : std::nullopt;
-			ListenToDeviceEvents([&](DeviceEventType deviceEventType, std::wstring_view deviceName) {
+			ListenToDeviceEvents(
+				[&]{
+					Log(Log::Level::INFO) << L"Listening for device events";
+					onReady();
+				},
+				[&](DeviceEventType deviceEventType, std::wstring_view deviceName) {
 				std::wstring_view deviceEventTypeString;
 
 				const bool loggingOnly = !options.url.has_value();
@@ -136,7 +141,7 @@ namespace LGTVDeviceListener {
 			});
 		}
 
-		int Run(int argc, char** argv, RunMode runMode) {
+		int Run(int argc, char** argv, RunMode runMode, const std::function<void()>& onReady = [] {}) {
 			const auto options = ::LGTVDeviceListener::ParseCommandLine(argc, argv, runMode);
 			if (!options.has_value()) return EXIT_FAILURE;
 
@@ -145,7 +150,7 @@ namespace LGTVDeviceListener {
 				if (options->createService && runMode != RunMode::SERVICE)
 					CreateService();
 				else
-					RunDeviceListener(*options);
+					RunDeviceListener(*options, onReady);
 			}
 			catch (const std::exception& exception) {
 				Log(Log::Level::ERR) << "FATAL: " << ToWideString(exception.what(), CP_ACP);
@@ -159,13 +164,17 @@ namespace LGTVDeviceListener {
 			ServiceControlHandler() {
 				if (serviceStatusHandle == NULL)
 					throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to register service control handler");
-				SetStatus(SERVICE_RUNNING, SERVICE_ACCEPT_STOP);
+				SetStatus(SERVICE_START_PENDING, SERVICE_ACCEPT_STOP);
 			}
 
 			~ServiceControlHandler() {
 				// This means the service thread is unwinding, which currently always means an error occurred.
 				// In any case, we *have* to send SERVICE_STOPPED because any further control requests will hit a destroyed ServiceControlHandler object.
 				SetStatus(SERVICE_STOPPED, 0, true);
+			}
+
+			void OnReady() {
+				SetStatus(SERVICE_RUNNING, SERVICE_ACCEPT_STOP);
 			}
 
 		private:
@@ -205,7 +214,7 @@ namespace LGTVDeviceListener {
 		VOID WINAPI RunService(DWORD argc, LPTSTR* argv) {
 			try {
 				ServiceControlHandler serviceControlHandler;
-				Run(argc, argv, RunMode::SERVICE);
+				Run(argc, argv, RunMode::SERVICE, [&] { serviceControlHandler.OnReady(); });
 			}
 			catch (const std::exception& exception) {
 				InitializeLog(RunMode::SERVICE);
