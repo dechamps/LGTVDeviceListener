@@ -5,6 +5,8 @@
 
 #include <cxxopts.hpp>
 
+#include <Shlobj.h>
+
 namespace LGTVDeviceListener {
 	namespace {
 
@@ -25,7 +27,7 @@ namespace LGTVDeviceListener {
 
 		struct Options final {
 			std::optional<std::string> url;
-			std::optional<std::string> clientKey;
+			std::optional<std::string> clientKeyFile;
 			std::optional<std::string> deviceName;
 			std::optional<std::string> addInput;
 			std::optional<std::string> removeInput;
@@ -40,7 +42,7 @@ namespace LGTVDeviceListener {
 			Options options;
 			cxxoptsOptions.add_options()
 				("url", "URL of the LGTV websocket. For example `ws://192.168.1.42:3000`. If not specified, log device events only", ::cxxopts::value(options.url))
-				("client-key", "LGTV client key. For example `0123456789abcdef0123456789abcdef`. If not specified, will register a new key", ::cxxopts::value(options.clientKey))
+				("client-key-file", R"(Path to the file holding the LGTV client key. If the file doesn't exist, a new client key will be registered and written to the file (default: %ProgramData%\LGTVDeviceListener.client-key)", ::cxxopts::value(options.clientKeyFile))
 				("device-name", R"(The name of the device to watch. Typically starts with `\\?\`. If not specified, log device events only)", ::cxxopts::value(options.deviceName))
 				("add-input", "Which TV input to switch to when the device is added. For example `HDMI_1`. If not specified, does nothing on add", ::cxxopts::value(options.addInput))
 				("remove-input", "Which TV input to switch to when the device is removed. For example `HDMI_2`. If not specified, does nothing on remove", ::cxxopts::value(options.removeInput))
@@ -57,6 +59,70 @@ namespace LGTVDeviceListener {
 				return std::nullopt;
 			}
 			return options;
+		}
+
+		struct HandleDeleter final {
+			void operator()(HANDLE handle) const {
+				if (handle == NULL || handle == INVALID_HANDLE_VALUE) return;
+				CloseHandle(handle);
+			}
+		};
+		using UniqueHandle = std::unique_ptr<std::remove_pointer_t<HANDLE>, HandleDeleter>;
+
+		std::wstring GetClientKeyPath(const std::optional<std::string>& file) {
+			if (file.has_value()) return ToWideString(*file, CP_ACP);
+			PWSTR path = NULL;
+			const auto hresult = ::SHGetKnownFolderPath(FOLDERID_ProgramData, 0, NULL, &path);
+			if (hresult != S_OK) {
+				::CoTaskMemFree(path);
+				throw std::runtime_error("Unable to get ProgramData folder path [" + std::to_string(hresult) + "]");
+			}
+			auto pathString = std::wstring(path) + LR"(\LGTVDeviceListener.client-key)";
+			::CoTaskMemFree(path);
+			return pathString;
+		}
+
+		std::optional<std::string> ReadClientKey(const std::wstring& path) {
+			UniqueHandle handle(::CreateFileW(
+				/*lpFileName=*/path.c_str(),
+				/*dwDesiredAccess=*/GENERIC_READ,
+				/*dwShareMode=*/FILE_SHARE_READ,
+				/*lpSecurityAttributes=*/NULL,
+				/*dwCreationDisposition*/OPEN_EXISTING,
+				/*dwFlagsAndAttributes=*/FILE_FLAG_SEQUENTIAL_SCAN,
+				/*hTemplateFile*/NULL
+			));
+			if (handle.get() == INVALID_HANDLE_VALUE) {
+				const auto error = ::GetLastError();
+				if (error == ERROR_FILE_NOT_FOUND) return std::nullopt;
+				throw std::system_error(std::error_code(error, std::system_category()), "Failed to open client key file");
+			}
+
+			char contents[4096];
+			DWORD bytesRead;
+			if (ReadFile(handle.get(), contents, sizeof(contents), &bytesRead, NULL) == 0)
+				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Failed to read client key file");
+			if (bytesRead >= sizeof(contents))
+				throw std::runtime_error("Client key file is too large");
+			return std::string(contents, bytesRead);
+		}
+
+		void WriteClientKey(const std::wstring& path, std::string_view clientKey) {
+			UniqueHandle handle(::CreateFileW(
+				/*lpFileName=*/path.c_str(),
+				/*dwDesiredAccess=*/GENERIC_WRITE,
+				/*dwShareMode=*/0,
+				/*lpSecurityAttributes=*/NULL,
+				/*dwCreationDisposition*/CREATE_NEW,
+				/*dwFlagsAndAttributes=*/FILE_ATTRIBUTE_NORMAL,
+				/*hTemplateFile*/NULL
+			));
+			if (handle.get() == INVALID_HANDLE_VALUE)
+				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Failed to write client key file");
+
+			DWORD bytesWritten;
+			if (WriteFile(handle.get(), clientKey.data(), clientKey.size(), &bytesWritten, NULL) == 0)
+				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Failed to read client key file");
 		}
 
 		struct ServiceHandleDeleter final {
@@ -120,16 +186,21 @@ namespace LGTVDeviceListener {
 				.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds
 			};
 
-			std::optional<std::string> clientKey = options.clientKey;
-			if (!clientKey.has_value() && options.url.has_value()) {
-				Log(Log::Level::INFO) << L"Registering new client key with LGTV";
+			const auto clientKeyPath = GetClientKeyPath(options.clientKeyFile);
+			Log(Log::Level::VERBOSE) << L"Using client key file: " << clientKeyPath;
+			auto clientKey = ReadClientKey(clientKeyPath);
+			if (clientKey.has_value())
+				Log(Log::Level::VERBOSE) << L"Successfully loaded client key";
+			else if (options.url.has_value()) {
+				Log(Log::Level::INFO) << L"Client key file not found - registering new client key with LGTV";
 				LGTVClient::Run(
 					*options.url, { .webSocketClientOptions = webSocketClientOptions },
 					[&](LGTVClient& lgtvClient, std::string_view newClientKey) {
-						Log(Log::Level::INFO) << "LGTV client key: " << ToWideString(newClientKey, CP_UTF8);
+						Log(Log::Level::INFO) << "New LGTV client key successfully obtained";
 						clientKey = newClientKey;
 						lgtvClient.Close();
 					});
+				WriteClientKey(clientKeyPath, *clientKey);
 			}
 
 			const auto expectedDeviceName = options.deviceName.has_value() ? std::optional<std::wstring>(ToWideString(*options.deviceName, CP_ACP)) : std::nullopt;
