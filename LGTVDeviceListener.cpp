@@ -8,6 +8,8 @@
 namespace LGTVDeviceListener {
 	namespace {
 
+		constexpr auto SERVICE_NAME = L"LGTVDeviceListener";
+
 		enum class RunMode { CONSOLE, SERVICE };
 
 		void InitializeLog(RunMode runMode, bool verbose = false) {
@@ -68,7 +70,7 @@ namespace LGTVDeviceListener {
 
 			if (UniqueServiceHandle(CreateServiceW(
 				/*hSCManager=*/serviceManager.get(),
-				/*lpServiceName*/L"LGTVDeviceListener",
+				/*lpServiceName*/SERVICE_NAME,
 				/*lpDisplayName=*/L"LGTVDeviceListener",
 				/*dwDesiredAccess*/0,
 				/*dwServiceType*/SERVICE_WIN32_OWN_PROCESS,
@@ -152,7 +154,38 @@ namespace LGTVDeviceListener {
 			return EXIT_SUCCESS;
 		}
 
+		DWORD WINAPI ServiceControlHandler(DWORD control, DWORD, LPVOID, LPVOID) {
+			switch (control) {
+			case SERVICE_CONTROL_INTERROGATE: return NO_ERROR;
+			default: return ERROR_CALL_NOT_IMPLEMENTED;
+			}			
+		}
+
 		VOID WINAPI RunService(DWORD argc, LPTSTR* argv) {
+			try {
+				const auto serviceStatusHandle = RegisterServiceCtrlHandlerExW(SERVICE_NAME, ServiceControlHandler, NULL);
+				if (serviceStatusHandle == NULL)
+					throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to register service control handler");
+
+				{
+					SERVICE_STATUS serviceStatus = {
+						.dwServiceType = SERVICE_USER_OWN_PROCESS,
+						.dwCurrentState = SERVICE_RUNNING,
+						.dwControlsAccepted = 0,
+						.dwWin32ExitCode = NO_ERROR,
+						.dwServiceSpecificExitCode = 0,
+						.dwCheckPoint = 0,
+						.dwWaitHint = 0,
+					};
+					if (SetServiceStatus(serviceStatusHandle, &serviceStatus) == 0)
+						throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to set service status");
+				}
+			}
+			catch (const std::exception& exception) {
+				InitializeLog(RunMode::SERVICE);
+				Log(Log::Level::ERR) << "FATAL: " << ToWideString(exception.what(), CP_ACP);
+			}
+
 			Run(argc, argv, RunMode::SERVICE);
 		}
 
