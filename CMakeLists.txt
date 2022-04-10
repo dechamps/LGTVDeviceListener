@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.21)
 
-string(APPEND VCPKG_TARGET_TRIPLET "-static")
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-
 project(LGTVDeviceListener)
+
+if (VCPKG_TARGET_TRIPLET MATCHES "-static$")
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 find_package(cxxopts REQUIRED)
 find_package(ixwebsocket REQUIRED)
