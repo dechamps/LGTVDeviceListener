@@ -12,6 +12,10 @@ namespace LGTVDeviceListener {
 
 		enum class RunMode { CONSOLE, SERVICE };
 
+		// Made global because otherwise it's difficult to get to while running as a service.
+		int argc;
+		const char* const* argv;
+
 		void InitializeLog(RunMode runMode, bool verbose = false) {
 			Log::Initialize({
 				.verbose = verbose,
@@ -31,7 +35,7 @@ namespace LGTVDeviceListener {
 			int handshakeTimeoutSeconds = WebSocketClient::Options().handshakeTimeoutSeconds;
 		};
 
-		std::optional<Options> ParseCommandLine(int argc, char** argv, RunMode runMode) {
+		std::optional<Options> ParseCommandLine(RunMode runMode) {
 			::cxxopts::Options cxxoptsOptions("LGTVDeviceListener", "LGTV Device Listener");
 			Options options;
 			cxxoptsOptions.add_options()
@@ -141,8 +145,8 @@ namespace LGTVDeviceListener {
 			});
 		}
 
-		int Run(int argc, char** argv, RunMode runMode, const std::function<void()>& onReady = [] {}) {
-			const auto options = ::LGTVDeviceListener::ParseCommandLine(argc, argv, runMode);
+		int Run(RunMode runMode, const std::function<void()>& onReady = [] {}) {
+			const auto options = ::LGTVDeviceListener::ParseCommandLine(runMode);
 			if (!options.has_value()) return EXIT_FAILURE;
 
 			InitializeLog(runMode, options->verbose);
@@ -211,10 +215,10 @@ namespace LGTVDeviceListener {
 			const SERVICE_STATUS_HANDLE serviceStatusHandle = RegisterServiceCtrlHandlerExW(SERVICE_NAME, Handler, this);
 		};
 
-		VOID WINAPI RunService(DWORD argc, LPTSTR* argv) {
+		VOID WINAPI RunService(DWORD, LPTSTR*) {
 			try {
 				ServiceControlHandler serviceControlHandler;
-				Run(argc, argv, RunMode::SERVICE, [&] { serviceControlHandler.OnReady(); });
+				Run(RunMode::SERVICE, [&] { serviceControlHandler.OnReady(); });
 			}
 			catch (const std::exception& exception) {
 				InitializeLog(RunMode::SERVICE);
@@ -225,7 +229,10 @@ namespace LGTVDeviceListener {
 	}
 }
 
-int main(int argc, char** argv) {
+int main(int argc, const char* const* argv) {
+	::LGTVDeviceListener::argc = argc;
+	::LGTVDeviceListener::argv = argv;
+
 	try {
 		const SERVICE_TABLE_ENTRYA serviceTableEntries[] = {
 			{.lpServiceName = const_cast<LPSTR>(""), .lpServiceProc = ::LGTVDeviceListener::RunService },
@@ -236,7 +243,7 @@ int main(int argc, char** argv) {
 		if (serviceDispatcherError != ERROR_FAILED_SERVICE_CONTROLLER_CONNECT)
 			throw std::system_error(std::error_code(serviceDispatcherError, std::system_category()), "Unable to start service dispatcher");
 
-		return ::LGTVDeviceListener::Run(argc, argv, ::LGTVDeviceListener::RunMode::CONSOLE);
+		return ::LGTVDeviceListener::Run(::LGTVDeviceListener::RunMode::CONSOLE);
 	}
 	catch (const std::exception& exception) {
 		std::cerr << "FATAL ERROR: " << exception.what() << std::endl;
