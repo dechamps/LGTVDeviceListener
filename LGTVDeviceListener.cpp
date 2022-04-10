@@ -162,6 +162,12 @@ namespace LGTVDeviceListener {
 				SetStatus(SERVICE_RUNNING, SERVICE_ACCEPT_STOP);
 			}
 
+			~ServiceControlHandler() {
+				// This means the service thread is unwinding, which currently always means an error occurred.
+				// In any case, we *have* to send SERVICE_STOPPED because any further control requests will hit a destroyed ServiceControlHandler object.
+				SetStatus(SERVICE_STOPPED, 0, true);
+			}
+
 		private:
 			static DWORD WINAPI Handler(DWORD control, DWORD eventType, LPVOID eventData, LPVOID context) {
 				return static_cast<ServiceControlHandler*>(context)->Handle(control, eventType, eventData);
@@ -177,13 +183,15 @@ namespace LGTVDeviceListener {
 				}
 			}
 
-			void SetStatus(DWORD currentState, DWORD controlsAccepted) {
+			void SetStatus(DWORD currentState, DWORD controlsAccepted, bool error = false) {
 				SERVICE_STATUS serviceStatus = {
 					.dwServiceType = SERVICE_USER_OWN_PROCESS,
 					.dwCurrentState = currentState,
 					.dwControlsAccepted = controlsAccepted,
-					.dwWin32ExitCode = NO_ERROR,
-					.dwServiceSpecificExitCode = 0,
+					// It looks like no matter what we do, the services UI will try to interpret the exit code as a win32 system error code (yes, even dwServiceSpecificExitCode).
+					// Therefore zero would show as "This operation completed successfully". There doesn't seem be any "generic" or "unknown" win32 system error code so we just keep repeating ERROR_SERVICE_SPECIFIC_ERROR.
+					.dwWin32ExitCode = error ? DWORD(ERROR_SERVICE_SPECIFIC_ERROR) : NO_ERROR,
+					.dwServiceSpecificExitCode = error ? DWORD(ERROR_SERVICE_SPECIFIC_ERROR) : 0,
 					.dwCheckPoint = 0,
 					.dwWaitHint = 0,
 				};
