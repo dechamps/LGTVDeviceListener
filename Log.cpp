@@ -4,12 +4,17 @@
 
 #include <stdexcept>
 #include <iostream>
+#include <io.h>
+#include <fcntl.h>
 
 namespace LGTVDeviceListener {
 
 	void Log::Initialize(Options options) {
 		if (state.has_value())
 			throw std::logic_error("Logging initialized twice");
+
+		if (options.channel == Channel::STDERR)
+			(void)_setmode(_fileno(stderr), _O_U16TEXT);
 
 		state = {
 			.verbose = options.verbose,
