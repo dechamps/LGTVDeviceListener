@@ -44,7 +44,7 @@ namespace LGTVDeviceListener {
 				("device-name", R"(The name of the device to watch. Typically starts with `\\?\`. If not specified, log device events only)", ::cxxopts::value(options.deviceName))
 				("add-input", "Which TV input to switch to when the device is added. For example `HDMI_1`. If not specified, does nothing on add", ::cxxopts::value(options.addInput))
 				("remove-input", "Which TV input to switch to when the device is removed. For example `HDMI_2`. If not specified, does nothing on remove", ::cxxopts::value(options.removeInput))
-				("create-service", "Create a Windows service that runs with the other provided arguments", ::cxxopts::value(options.createService))
+				("create-service", "Create a Windows service that runs with the other provided arguments, then start it", ::cxxopts::value(options.createService))
 				("verbose", "Enable verbose logging", ::cxxopts::value(options.verbose))
 				("connect-timeout-seconds", "How long to wait for the WebSocket connection to establish, in seconds", ::cxxopts::value(options.connectTimeoutSeconds))
 				("handshake-timeout-seconds", "How long to wait for the WebSocket handshake to complete, in seconds", ::cxxopts::value(options.handshakeTimeoutSeconds));
@@ -76,9 +76,9 @@ namespace LGTVDeviceListener {
 				/*hSCManager=*/serviceManager.get(),
 				/*lpServiceName*/SERVICE_NAME,
 				/*lpDisplayName=*/L"LGTVDeviceListener",
-				/*dwDesiredAccess*/SERVICE_CHANGE_CONFIG,
+				/*dwDesiredAccess*/SERVICE_CHANGE_CONFIG | SERVICE_START,
 				/*dwServiceType*/SERVICE_WIN32_OWN_PROCESS,
-				/*dwStartType*/SERVICE_DEMAND_START,
+				/*dwStartType*/SERVICE_AUTO_START,
 				/*dwErrorControl*/SERVICE_ERROR_NORMAL,
 				/*lpBinaryPathName*/GetCommandLineW(),
 				/*lpLoadOrderGroup*/NULL,
@@ -107,6 +107,11 @@ namespace LGTVDeviceListener {
 				SERVICE_SID_INFO sid = { .dwServiceSidType = SERVICE_SID_TYPE_UNRESTRICTED };
 				changeConfig(SERVICE_CONFIG_SERVICE_SID_INFO, &sid);
 			}
+
+			if (StartServiceW(service.get(), 0, NULL) == 0)
+				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to start service");
+
+			Log(Log::Level::INFO) << L"Service has been created and started. Any messages/errors from the service will be sent to the Windows Application Event Log.";
 		}
 
 		void RunDeviceListener(const Options& options, const std::function<void()>& onReady) {
