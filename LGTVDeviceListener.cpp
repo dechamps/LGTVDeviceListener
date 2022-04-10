@@ -46,8 +46,8 @@ namespace LGTVDeviceListener {
 				("remove-input", "Which TV input to switch to when the device is removed. For example `HDMI_2`. If not specified, does nothing on remove", ::cxxopts::value(options.removeInput))
 				("create-service", "Create a Windows service that runs with the other provided arguments, then start it", ::cxxopts::value(options.createService))
 				("verbose", "Enable verbose logging", ::cxxopts::value(options.verbose))
-				("connect-timeout-seconds", "How long to wait for the WebSocket connection to establish, in seconds", ::cxxopts::value(options.connectTimeoutSeconds))
-				("handshake-timeout-seconds", "How long to wait for the WebSocket handshake to complete, in seconds", ::cxxopts::value(options.handshakeTimeoutSeconds));
+				("connect-timeout-seconds", "How long to wait for the WebSocket connection to establish, in seconds (default: " + std::to_string(Options().connectTimeoutSeconds) + ")", ::cxxopts::value(options.connectTimeoutSeconds))
+				("handshake-timeout-seconds", "How long to wait for the WebSocket handshake to complete, in seconds (default: " + std::to_string(Options().handshakeTimeoutSeconds) + ")", ::cxxopts::value(options.handshakeTimeoutSeconds));
 			try {
 				cxxoptsOptions.parse(argc, argv);
 			}
