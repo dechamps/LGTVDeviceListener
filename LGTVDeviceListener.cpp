@@ -154,39 +154,55 @@ namespace LGTVDeviceListener {
 			return EXIT_SUCCESS;
 		}
 
-		DWORD WINAPI ServiceControlHandler(DWORD control, DWORD, LPVOID, LPVOID) {
-			switch (control) {
-			case SERVICE_CONTROL_INTERROGATE: return NO_ERROR;
-			default: return ERROR_CALL_NOT_IMPLEMENTED;
-			}			
-		}
+		class ServiceControlHandler final {
+		public:
+			ServiceControlHandler() {
+				if (serviceStatusHandle == NULL)
+					throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to register service control handler");
+				SetStatus(SERVICE_RUNNING, SERVICE_ACCEPT_STOP);
+			}
+
+		private:
+			static DWORD WINAPI Handler(DWORD control, DWORD eventType, LPVOID eventData, LPVOID context) {
+				return static_cast<ServiceControlHandler*>(context)->Handle(control, eventType, eventData);
+			}
+
+			DWORD WINAPI Handle(DWORD control, DWORD, LPVOID) {
+				switch (control) {
+				case SERVICE_CONTROL_INTERROGATE: return NO_ERROR;
+				case SERVICE_CONTROL_STOP:
+					SetStatus(SERVICE_STOPPED, 0);
+					return NO_ERROR;
+				default: return ERROR_CALL_NOT_IMPLEMENTED;
+				}
+			}
+
+			void SetStatus(DWORD currentState, DWORD controlsAccepted) {
+				SERVICE_STATUS serviceStatus = {
+					.dwServiceType = SERVICE_USER_OWN_PROCESS,
+					.dwCurrentState = currentState,
+					.dwControlsAccepted = controlsAccepted,
+					.dwWin32ExitCode = NO_ERROR,
+					.dwServiceSpecificExitCode = 0,
+					.dwCheckPoint = 0,
+					.dwWaitHint = 0,
+				};
+				if (SetServiceStatus(serviceStatusHandle, &serviceStatus) == 0)
+					throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to set service status");
+			}
+
+			const SERVICE_STATUS_HANDLE serviceStatusHandle = RegisterServiceCtrlHandlerExW(SERVICE_NAME, Handler, this);
+		};
 
 		VOID WINAPI RunService(DWORD argc, LPTSTR* argv) {
 			try {
-				const auto serviceStatusHandle = RegisterServiceCtrlHandlerExW(SERVICE_NAME, ServiceControlHandler, NULL);
-				if (serviceStatusHandle == NULL)
-					throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to register service control handler");
-
-				{
-					SERVICE_STATUS serviceStatus = {
-						.dwServiceType = SERVICE_USER_OWN_PROCESS,
-						.dwCurrentState = SERVICE_RUNNING,
-						.dwControlsAccepted = 0,
-						.dwWin32ExitCode = NO_ERROR,
-						.dwServiceSpecificExitCode = 0,
-						.dwCheckPoint = 0,
-						.dwWaitHint = 0,
-					};
-					if (SetServiceStatus(serviceStatusHandle, &serviceStatus) == 0)
-						throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to set service status");
-				}
+				ServiceControlHandler serviceControlHandler;
+				Run(argc, argv, RunMode::SERVICE);
 			}
 			catch (const std::exception& exception) {
 				InitializeLog(RunMode::SERVICE);
 				Log(Log::Level::ERR) << "FATAL: " << ToWideString(exception.what(), CP_ACP);
 			}
-
-			Run(argc, argv, RunMode::SERVICE);
 		}
 
 	}
