@@ -6,6 +6,8 @@
 #include <cxxopts.hpp>
 
 #include <Shlobj.h>
+#include <accctrl.h>
+#include <aclapi.h>
 
 namespace LGTVDeviceListener {
 	namespace {
@@ -69,6 +71,15 @@ namespace LGTVDeviceListener {
 		};
 		using UniqueHandle = std::unique_ptr<std::remove_pointer_t<HANDLE>, HandleDeleter>;
 
+		struct LocalHeapDeleter final {
+			void operator()(HLOCAL hmem) const {
+				if (LocalFree(hmem) != NULL)
+					throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to free local heap memory");
+			}
+		};
+		template <typename T>
+		using UniqueHeapPtr = std::unique_ptr<T, LocalHeapDeleter>;
+
 		std::wstring GetClientKeyPath(const std::optional<std::string>& file) {
 			if (file.has_value()) return ToWideString(*file, CP_ACP);
 			PWSTR path = NULL;
@@ -107,12 +118,62 @@ namespace LGTVDeviceListener {
 			return std::string(contents, bytesRead);
 		}
 
+		UniqueHeapPtr<ACL> CreateAcl(ULONG explicitEntriesCount, const EXPLICIT_ACCESS_W* explicitEntries) {
+			PACL acl;
+			const auto setEntriesInAclError = ::SetEntriesInAclW(explicitEntriesCount, const_cast<EXPLICIT_ACCESS_W*>(explicitEntries), NULL, &acl);
+			if (setEntriesInAclError != ERROR_SUCCESS)
+				throw std::system_error(std::error_code(setEntriesInAclError, std::system_category()), "Failed to set ACL entries");
+			return UniqueHeapPtr<ACL>(acl);
+		}
+
 		void WriteClientKey(const std::wstring& path, std::string_view clientKey) {
+			const auto serviceTrusteeName = std::wstring(LR"(NT SERVICE\)") + SERVICE_NAME;
+			EXPLICIT_ACCESS_W explicitEntries[] = {
+				{
+					.grfAccessPermissions = GENERIC_ALL,
+					.grfAccessMode = GRANT_ACCESS,
+					.grfInheritance = NO_INHERITANCE,
+					.Trustee = {
+						.pMultipleTrustee = NULL,
+						.MultipleTrusteeOperation = NO_MULTIPLE_TRUSTEE,
+						.TrusteeForm = TRUSTEE_IS_NAME,
+						.TrusteeType = TRUSTEE_IS_USER,
+						.ptstrName = const_cast<wchar_t*>(L"CREATOR OWNER"),
+					},
+				},
+				{
+					.grfAccessPermissions = GENERIC_READ,
+					.grfAccessMode = GRANT_ACCESS,
+					.grfInheritance = NO_INHERITANCE,
+					.Trustee = {
+						.pMultipleTrustee = NULL,
+						.MultipleTrusteeOperation = NO_MULTIPLE_TRUSTEE,
+						.TrusteeForm = TRUSTEE_IS_NAME,
+						.TrusteeType = TRUSTEE_IS_USER,
+						.ptstrName = const_cast<wchar_t*>(serviceTrusteeName.c_str()),
+					},
+				},
+			};
+			const auto acl = CreateAcl(sizeof(explicitEntries) / sizeof(*explicitEntries), explicitEntries);
+			SECURITY_DESCRIPTOR securityDescriptor;
+			if (::InitializeSecurityDescriptor(&securityDescriptor, SECURITY_DESCRIPTOR_REVISION) == 0)
+				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Failed to initialize security descriptor");
+			if (::SetSecurityDescriptorDacl(&securityDescriptor, TRUE, acl.get(), FALSE) == 0)
+				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Failed to set DACL");
+			if (::SetSecurityDescriptorControl(&securityDescriptor, SE_DACL_PROTECTED, SE_DACL_PROTECTED) == 0)
+				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Failed to set security control bits");
+
+			SECURITY_ATTRIBUTES securityAttributes = {
+				.nLength = sizeof(securityAttributes),
+				.lpSecurityDescriptor = &securityDescriptor,
+				.bInheritHandle = FALSE,
+			};
+
 			UniqueHandle handle(::CreateFileW(
 				/*lpFileName=*/path.c_str(),
 				/*dwDesiredAccess=*/GENERIC_WRITE,
 				/*dwShareMode=*/0,
-				/*lpSecurityAttributes=*/NULL,
+				/*lpSecurityAttributes=*/&securityAttributes,
 				/*dwCreationDisposition*/CREATE_NEW,
 				/*dwFlagsAndAttributes=*/FILE_ATTRIBUTE_NORMAL,
 				/*hTemplateFile*/NULL
