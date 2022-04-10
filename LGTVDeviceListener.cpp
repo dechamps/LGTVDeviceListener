@@ -72,11 +72,11 @@ namespace LGTVDeviceListener {
 			if (serviceManager == NULL)
 				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to open service manager");
 
-			if (UniqueServiceHandle(CreateServiceW(
+			const UniqueServiceHandle service(CreateServiceW(
 				/*hSCManager=*/serviceManager.get(),
 				/*lpServiceName*/SERVICE_NAME,
 				/*lpDisplayName=*/L"LGTVDeviceListener",
-				/*dwDesiredAccess*/0,
+				/*dwDesiredAccess*/SERVICE_CHANGE_CONFIG,
 				/*dwServiceType*/SERVICE_WIN32_OWN_PROCESS,
 				/*dwStartType*/SERVICE_DEMAND_START,
 				/*dwErrorControl*/SERVICE_ERROR_NORMAL,
@@ -86,8 +86,27 @@ namespace LGTVDeviceListener {
 				/*lpDependencies*/NULL,
 				/*lpServiceStartName=*/LR"(NT AUTHORITY\LocalService)",
 				/*lpPassword=*/NULL
-			)) == NULL)
+			));
+			if (service == NULL)
 				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to create service");
+
+			auto changeConfig = [&](DWORD infoLevel, LPVOID info) {
+				if (ChangeServiceConfig2W(service.get(), infoLevel, info) == 0)
+					throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to change service configuration");
+			};
+			{
+				SERVICE_DESCRIPTIONW description = { .lpDescription = const_cast<wchar_t*>(L"https://github.com/dechamps/LGTVDeviceListener") };
+				changeConfig(SERVICE_CONFIG_DESCRIPTION, &description);
+			}
+			{
+				SERVICE_REQUIRED_PRIVILEGES_INFOW requiredPrivileges = { .pmszRequiredPrivileges = const_cast<wchar_t*>(L"\0") };
+				changeConfig(SERVICE_CONFIG_REQUIRED_PRIVILEGES_INFO, &requiredPrivileges);
+			}
+			{
+				// Ideally we'd use RESTRICTED here, but that makes the DeviceListener CreateWindow call fail with ERROR_ACCESS_DENIED for some reason.
+				SERVICE_SID_INFO sid = { .dwServiceSidType = SERVICE_SID_TYPE_UNRESTRICTED };
+				changeConfig(SERVICE_CONFIG_SERVICE_SID_INFO, &sid);
+			}
 		}
 
 		void RunDeviceListener(const Options& options, const std::function<void()>& onReady) {
