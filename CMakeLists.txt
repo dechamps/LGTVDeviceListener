@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
+
+string(APPEND VCPKG_TARGET_TRIPLET "-static")
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 project(LGTVDeviceListener)
 
 find_package(cxxopts REQUIRED)
