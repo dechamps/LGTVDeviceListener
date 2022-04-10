@@ -50,7 +50,7 @@ namespace LGTVDeviceListener {
 				return windowUserData;
 			}
 
-			static LRESULT WindowProcedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+			static LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				try {
 					if (uMsg == WM_NCCREATE) SetWindowUserDataOnCreate(hwnd, lParam);
 
