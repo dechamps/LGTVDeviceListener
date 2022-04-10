@@ -8,6 +8,15 @@
 namespace LGTVDeviceListener {
 	namespace {
 
+		enum class RunMode { CONSOLE, SERVICE };
+
+		void InitializeLog(RunMode runMode, bool verbose = false) {
+			Log::Initialize({
+				.verbose = verbose,
+				.channel = runMode == RunMode::SERVICE ? Log::Channel::WINDOWS_EVENT_LOG : Log::Channel::STDERR,
+			});
+		}
+
 		struct Options final {
 			std::optional<std::string> url;
 			std::optional<std::string> clientKey;
@@ -16,12 +25,11 @@ namespace LGTVDeviceListener {
 			std::optional<std::string> removeInput;
 			bool createService = false;
 			bool verbose = false;
-			bool windowsEventLog = false;
 			int connectTimeoutSeconds = WebSocketClient::Options().connectTimeoutSeconds;
 			int handshakeTimeoutSeconds = WebSocketClient::Options().handshakeTimeoutSeconds;
 		};
 
-		std::optional<Options> ParseCommandLine(int argc, char** argv) {
+		std::optional<Options> ParseCommandLine(int argc, char** argv, RunMode runMode) {
 			::cxxopts::Options cxxoptsOptions("LGTVDeviceListener", "LGTV Device Listener");
 			Options options;
 			cxxoptsOptions.add_options()
@@ -32,14 +40,13 @@ namespace LGTVDeviceListener {
 				("remove-input", "Which TV input to switch to when the device is removed. For example `HDMI_2`. If not specified, does nothing on remove", ::cxxopts::value(options.removeInput))
 				("create-service", "Create a Windows service that runs with the other provided arguments", ::cxxopts::value(options.createService))
 				("verbose", "Enable verbose logging", ::cxxopts::value(options.verbose))
-				("windows-event-log", "Send log messages to the Windows Event log instead of STDERR", ::cxxopts::value(options.windowsEventLog))
 				("connect-timeout-seconds", "How long to wait for the WebSocket connection to establish, in seconds", ::cxxopts::value(options.connectTimeoutSeconds))
 				("handshake-timeout-seconds", "How long to wait for the WebSocket handshake to complete, in seconds", ::cxxopts::value(options.handshakeTimeoutSeconds));
 			try {
 				cxxoptsOptions.parse(argc, argv);
 			}
 			catch (const std::exception& exception) {
-				Log::Initialize(Log::Options());
+				InitializeLog(runMode);
 				Log(Log::Level::ERR) << L"Wrong usage: " << ToWideString(exception.what(), CP_ACP) << L"\r\n\r\n" << ToWideString(cxxoptsOptions.help(), CP_UTF8);
 				return std::nullopt;
 			}
@@ -127,20 +134,26 @@ namespace LGTVDeviceListener {
 			});
 		}
 
-		void Run(const Options& options) {
-			Log::Initialize({
-				.verbose = options.verbose,
-				.channel = options.windowsEventLog ? Log::Channel::WINDOWS_EVENT_LOG : Log::Channel::STDERR
-				});
+		int Run(int argc, char** argv, RunMode runMode) {
+			const auto options = ::LGTVDeviceListener::ParseCommandLine(argc, argv, runMode);
+			if (!options.has_value()) return EXIT_FAILURE;
+
+			InitializeLog(runMode, options->verbose);
 			try {
-				if (options.createService)
+				if (options->createService && runMode != RunMode::SERVICE)
 					CreateService();
 				else
-					RunDeviceListener(options);
+					RunDeviceListener(*options);
 			}
 			catch (const std::exception& exception) {
 				Log(Log::Level::ERR) << "FATAL: " << ToWideString(exception.what(), CP_ACP);
+				return EXIT_FAILURE;
 			}
+			return EXIT_SUCCESS;
+		}
+
+		VOID WINAPI RunService(DWORD argc, LPTSTR* argv) {
+			Run(argc, argv, RunMode::SERVICE);
 		}
 
 	}
@@ -148,14 +161,19 @@ namespace LGTVDeviceListener {
 
 int main(int argc, char** argv) {
 	try {
-		const auto options = ::LGTVDeviceListener::ParseCommandLine(argc, argv);
-		if (!options.has_value()) return EXIT_FAILURE;
-		::LGTVDeviceListener::Run(*options);
+		const SERVICE_TABLE_ENTRYA serviceTableEntries[] = {
+			{.lpServiceName = const_cast<LPSTR>(""), .lpServiceProc = ::LGTVDeviceListener::RunService },
+			{.lpServiceName = NULL, .lpServiceProc = NULL},
+		};
+		if (StartServiceCtrlDispatcherA(serviceTableEntries) != 0) return EXIT_SUCCESS;
+		const auto serviceDispatcherError = GetLastError();
+		if (serviceDispatcherError != ERROR_FAILED_SERVICE_CONTROLLER_CONNECT)
+			throw std::system_error(std::error_code(serviceDispatcherError, std::system_category()), "Unable to start service dispatcher");
+
+		return ::LGTVDeviceListener::Run(argc, argv, ::LGTVDeviceListener::RunMode::CONSOLE);
 	}
 	catch (const std::exception& exception) {
 		std::cerr << "FATAL ERROR: " << exception.what() << std::endl;
 		return EXIT_FAILURE;
 	}
-
-	return EXIT_SUCCESS;
 }
