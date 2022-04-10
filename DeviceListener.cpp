@@ -58,10 +58,10 @@ namespace LGTVDeviceListener {
 					if (window != NULL) window->onMessage(hwnd, uMsg, wParam, lParam);
 				}
 				catch (const std::exception& exception) {
-					Log(Log::Level::NORMAL) << L"ERROR in device event listener: " << ToWideString(exception.what(), CP_ACP);
+					Log(Log::Level::ERR) << L"In device event listener: " << ToWideString(exception.what(), CP_ACP);
 				}
 				catch (...) {
-					Log(Log::Level::NORMAL) << L"UNKNOWN ERROR in device event listener";
+					Log(Log::Level::ERR) << L"In device event listener";
 				}
 				return DefWindowProcW(hwnd, uMsg, wParam, lParam);
 			}
@@ -155,7 +155,7 @@ namespace LGTVDeviceListener {
 			onEvent(deviceEventType, deviceInterfaceEvent.dbcc_name);
 		});
 		DeviceNotificationRegistration deviceNotificationRegistration(window.GetWindowHandle());
-		Log(Log::Level::NORMAL) << L"Listening for device events";
+		Log(Log::Level::INFO) << L"Listening for device events";
 		RunWindowMessageLoop(window.GetWindowHandle());
 	}
 

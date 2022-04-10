@@ -38,7 +38,7 @@ namespace LGTVDeviceListener {
 			}
 			catch (const std::exception& exception) {
 				Log::Initialize(Log::Options());
-				Log(Log::Level::NORMAL) << L"USAGE ERROR: " << ToWideString(exception.what(), CP_ACP) << L"\r\n\r\n" << ToWideString(cxxoptsOptions.help(), CP_UTF8);
+				Log(Log::Level::ERR) << L"Wrong usage: " << ToWideString(exception.what(), CP_ACP) << L"\r\n\r\n" << ToWideString(cxxoptsOptions.help(), CP_UTF8);
 				return std::nullopt;
 			}
 			return options;
@@ -57,11 +57,11 @@ namespace LGTVDeviceListener {
 
 				std::optional<std::string> clientKey = options.clientKey;
 				if (!clientKey.has_value() && options.url.has_value()) {
-					Log(Log::Level::NORMAL) << L"Registering new client key with LGTV";
+					Log(Log::Level::INFO) << L"Registering new client key with LGTV";
 					LGTVClient::Run(
 						*options.url, { .webSocketClientOptions = webSocketClientOptions },
 						[&](LGTVClient& lgtvClient, std::string_view newClientKey) {
-							Log(Log::Level::NORMAL) << "LGTV client key: " << ToWideString(newClientKey, CP_UTF8);
+							Log(Log::Level::INFO) << "LGTV client key: " << ToWideString(newClientKey, CP_UTF8);
 							clientKey = newClientKey;
 							lgtvClient.Close();
 						});
@@ -72,7 +72,7 @@ namespace LGTVDeviceListener {
 					std::wstring_view deviceEventTypeString;
 
 					const bool loggingOnly = !options.url.has_value();
-					Log(loggingOnly ? Log::Level::NORMAL : Log::Level::VERBOSE) << L"Device " << [&] {
+					Log(loggingOnly ? Log::Level::INFO : Log::Level::VERBOSE) << L"Device " << [&] {
 						switch (deviceEventType) {
 						case DeviceEventType::ADDED: return L"added";
 						case DeviceEventType::REMOVED: return L"removed";
@@ -90,7 +90,7 @@ namespace LGTVDeviceListener {
 						::abort();
 					}();
 					if (!input.has_value()) return;
-					Log(Log::Level::NORMAL) << L"Switching LGTV to input: " << ToWideString(*input, CP_UTF8);
+					Log(Log::Level::INFO) << L"Switching LGTV to input: " << ToWideString(*input, CP_UTF8);
 					LGTVClient::Run(
 						*options.url, { .clientKey = clientKey, .webSocketClientOptions = webSocketClientOptions },
 						[&](LGTVClient& lgtvClient, std::string_view) {
@@ -99,7 +99,7 @@ namespace LGTVDeviceListener {
 				});
 			}
 			catch (const std::exception& exception) {
-				Log(Log::Level::NORMAL) << "FATAL ERROR: " << ToWideString(exception.what(), CP_ACP);
+				Log(Log::Level::ERR) << "FATAL: " << ToWideString(exception.what(), CP_ACP);
 			}
 		}
 

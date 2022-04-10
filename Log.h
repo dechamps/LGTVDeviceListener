@@ -17,7 +17,7 @@ namespace LGTVDeviceListener {
 		};
 		static void Initialize(Options);
 
-		enum class Level { NORMAL, VERBOSE };
+		enum class Level { VERBOSE, INFO, WARNING, ERR };
 
 		Log(Level);
 		~Log();
@@ -39,6 +39,7 @@ namespace LGTVDeviceListener {
 		};
 		static std::optional<State> state;
 
+		const Level level;
 		std::optional<std::wstringstream> stream;
 	};
 

@@ -19,11 +19,21 @@ namespace LGTVDeviceListener {
 
 	std::optional<Log::State> Log::state;
 
-	Log::Log(Log::Level level) {
+	Log::Log(Log::Level level) :
+		level(level) {
 		if (!state.has_value())
 			throw std::logic_error("Attempted to log before logging is initialized");
-		if (level != Level::VERBOSE || state->verbose)
-			stream.emplace();
+		if (level != Level::VERBOSE || state->verbose) {
+			stream.emplace() << [&] {
+				switch (level) {
+				case Level::VERBOSE: return L"[verbose] ";
+				case Level::INFO:    return L"[info   ] ";
+				case Level::WARNING: return L"[WARNING] ";
+				case Level::ERR:     return L"[ERROR  ] ";
+				}
+				::abort();
+			}();
+		}
 	}
 	
 	Log::~Log() {
@@ -35,7 +45,15 @@ namespace LGTVDeviceListener {
 			auto cstr = str.c_str();
 			if (ReportEventW(
 				/*hEventLog=*/windowsEventLog,
-				/*wType*/EVENTLOG_INFORMATION_TYPE,
+				/*wType*/[&]() -> WORD {
+					switch (level) {
+					case Level::VERBOSE: return EVENTLOG_INFORMATION_TYPE;
+					case Level::INFO:    return EVENTLOG_INFORMATION_TYPE;
+					case Level::WARNING: return EVENTLOG_WARNING_TYPE;
+					case Level::ERR:     return EVENTLOG_ERROR_TYPE;
+					}
+					::abort();
+				}(),
 				/*wCategory=*/0,
 				// We don't have a registered event source to pull messages from, so the EventId is meaningless.
 				// In this situation, the Event Viewer will look up the EventID in the system message table, i.e. 0 translates to "The operation completed successfully".

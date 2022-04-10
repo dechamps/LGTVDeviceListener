@@ -2,8 +2,6 @@
 
 #include <ixwebsocket/IXNetSystem.h>
 
-#include "Log.h"
-
 #include <iostream>
 
 namespace LGTVDeviceListener {
