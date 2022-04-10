@@ -7,6 +7,7 @@ if (VCPKG_TARGET_TRIPLET MATCHES "-static$")
 endif()
 
 find_package(cxxopts REQUIRED)
+find_package(ZLIB REQUIRED)  # https://github.com/microsoft/vcpkg/issues/24071
 find_package(ixwebsocket REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
@@ -48,7 +49,7 @@ add_library(LGTVClient LGTVClient.cpp)
 target_link_libraries(LGTVClient
 	PRIVATE StringUtil
 	PRIVATE Log
-	PRIVATE WebSocketClient
+	PUBLIC WebSocketClient
 	PRIVATE nlohmann_json
 )
 

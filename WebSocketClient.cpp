@@ -1,6 +1,6 @@
 #include "WebSocketClient.h"
 
-#include <ixwebsocket/IXNetSystem.h>
+#include <IXNetSystem.h>
 
 #include <iostream>
 
