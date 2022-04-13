@@ -1,0 +1,44 @@
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - msvc_config: x64-Release
+            msvc_arch: amd64
+            build_type: RelWithDebInfo
+            vcpkg_target_triplet: x64-windows-static
+          - msvc_config: x86-Release
+            msvc_arch: amd64_x86
+            build_type: RelWithDebInfo
+            vcpkg_target_triplet: x86-windows-static
+          - msvc_config: x64-Debug
+            msvc_arch: amd64
+            build_type: Debug
+            vcpkg_target_triplet: x64-windows-static
+          - msvc_config: x86-Debug
+            msvc_arch: amd64_x86
+            build_type: Debug
+            vcpkg_target_triplet: x86-windows-static
+    steps:
+      - uses: actions/checkout@v2
+      - uses: friendlyanon/setup-vcpkg@v1
+        with:
+          committish: bd1ef2df46303989eeb048eb7aa9b816aa46365e
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
+      - run: >
+          cmake -S src -B src/out/build/${{ matrix.msvc_config }} -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DCMAKE_INSTALL_PREFIX:PATH=${{ github.workspace }}/src/out/install/${{ matrix.msvc_config }}
+          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+          -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_target_triplet }}
+      - run: cmake --build src/out/build/${{ matrix.msvc_config }}
+      - run: cmake --install src/out/build/${{ matrix.msvc_config }}
+      - uses: actions/upload-artifact@v2
+        with:
+          name: LGTVDeviceListener-${{ matrix.msvc_config }}
+          path: src/out/install/${{ matrix.msvc_config }}/
