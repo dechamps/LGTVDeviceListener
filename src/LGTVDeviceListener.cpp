@@ -182,7 +182,7 @@ namespace LGTVDeviceListener {
 				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Failed to write client key file");
 
 			DWORD bytesWritten;
-			if (WriteFile(handle.get(), clientKey.data(), clientKey.size(), &bytesWritten, NULL) == 0)
+			if (WriteFile(handle.get(), clientKey.data(), static_cast<DWORD>(clientKey.size()), &bytesWritten, NULL) == 0)
 				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Failed to read client key file");
 		}
 
