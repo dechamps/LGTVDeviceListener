@@ -28,6 +28,7 @@ namespace LGTVDeviceListener {
 		}
 
 		struct Options final {
+			bool showHelp = false;
 			std::optional<std::string> url;
 			std::optional<std::string> clientKeyFile;
 			std::optional<std::string> deviceName;
@@ -43,6 +44,7 @@ namespace LGTVDeviceListener {
 			::cxxopts::Options cxxoptsOptions("LGTVDeviceListener", "LGTV Device Listener");
 			Options options;
 			cxxoptsOptions.add_options()
+				("h,help", "Show this help message", ::cxxopts::value(options.showHelp))
 				("url", "URL of the LGTV websocket. For example `ws://192.168.1.42:3000`. If not specified, log device events only", ::cxxopts::value(options.url))
 				("client-key-file", R"(Path to the file holding the LGTV client key. If the file doesn't exist, a new client key will be registered and written to the file (default: %ProgramData%\LGTVDeviceListener.client-key)", ::cxxopts::value(options.clientKeyFile))
 				("device-name", R"(The name of the device to watch. Typically starts with `\\?\`. If not specified, log device events only)", ::cxxopts::value(options.deviceName))
@@ -60,6 +62,7 @@ namespace LGTVDeviceListener {
 				Log(Log::Level::ERR) << L"Wrong usage: " << ToWideString(exception.what(), CP_ACP) << L"\r\n\r\n" << ToWideString(cxxoptsOptions.help(), CP_UTF8);
 				return std::nullopt;
 			}
+			if (options.showHelp) std::cout << cxxoptsOptions.help();
 			return options;
 		}
 
@@ -304,6 +307,7 @@ namespace LGTVDeviceListener {
 		int Run(RunMode runMode, const std::function<void()>& onReady = [] {}) {
 			const auto options = ::LGTVDeviceListener::ParseCommandLine(runMode);
 			if (!options.has_value()) return EXIT_FAILURE;
+			if (options->showHelp) return EXIT_SUCCESS;
 
 			InitializeLog(runMode, options->verbose);
 			try {
