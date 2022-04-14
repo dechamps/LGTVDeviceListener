@@ -42,3 +42,4 @@ jobs:
         with:
           name: LGTVDeviceListener-${{ matrix.msvc_config }}
           path: src/out/install/${{ matrix.msvc_config }}/
+      - run: src/out/install/${{ matrix.msvc_config }}/bin/LGTVDeviceListener.exe --help
