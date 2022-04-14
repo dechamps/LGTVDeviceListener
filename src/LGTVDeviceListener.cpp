@@ -250,21 +250,24 @@ namespace LGTVDeviceListener {
 				.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds
 			};
 
-			const auto clientKeyPath = GetClientKeyPath(options.clientKeyFile);
-			Log(Log::Level::VERBOSE) << L"Using client key file: " << clientKeyPath;
-			auto clientKey = ReadClientKey(clientKeyPath);
-			if (clientKey.has_value())
-				Log(Log::Level::VERBOSE) << L"Successfully loaded client key";
-			else if (options.url.has_value()) {
-				Log(Log::Level::INFO) << L"Client key file not found - registering new client key with LGTV";
-				LGTVClient::Run(
-					*options.url, { .webSocketClientOptions = webSocketClientOptions },
-					[&](LGTVClient& lgtvClient, std::string_view newClientKey) {
-						Log(Log::Level::INFO) << "New LGTV client key successfully obtained";
-						clientKey = newClientKey;
-						lgtvClient.Close();
-					});
-				WriteClientKey(clientKeyPath, *clientKey);
+			std::optional<std::string> clientKey;
+			if (options.url.has_value()) {
+				const auto clientKeyPath = GetClientKeyPath(options.clientKeyFile);
+				Log(Log::Level::VERBOSE) << L"Using client key file: " << clientKeyPath;
+				clientKey = ReadClientKey(clientKeyPath);
+				if (clientKey.has_value())
+					Log(Log::Level::VERBOSE) << L"Successfully loaded client key";
+				else {
+					Log(Log::Level::INFO) << L"Client key file not found - registering new client key with LGTV";
+					LGTVClient::Run(
+						*options.url, { .webSocketClientOptions = webSocketClientOptions },
+						[&](LGTVClient& lgtvClient, std::string_view newClientKey) {
+							Log(Log::Level::INFO) << "New LGTV client key successfully obtained";
+							clientKey = newClientKey;
+							lgtvClient.Close();
+						});
+					WriteClientKey(clientKeyPath, *clientKey);
+				}
 			}
 
 			const auto expectedDeviceName = options.deviceName.has_value() ? std::optional<std::wstring>(ToWideString(*options.deviceName, CP_ACP)) : std::nullopt;
