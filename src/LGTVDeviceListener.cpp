@@ -46,7 +46,7 @@ namespace LGTVDeviceListener {
 			cxxoptsOptions.add_options()
 				("h,help", "Show this help message", ::cxxopts::value(options.showHelp))
 				("url", "URL of the LGTV websocket. For example `ws://192.168.1.42:3000`. If not specified, log device events only", ::cxxopts::value(options.url))
-				("client-key-file", R"(Path to the file holding the LGTV client key. If the file doesn't exist, a new client key will be registered and written to the file (default: %ProgramData%\LGTVDeviceListener.client-key)", ::cxxopts::value(options.clientKeyFile))
+				("client-key-file", R"(Path to the file holding the LGTV client key. If the file doesn't exist, a new client key will be registered and written to the file (default: %ProgramData%\LGTVDeviceListener.client-key))", ::cxxopts::value(options.clientKeyFile))
 				("device-name", R"(The name of the device to watch. Typically starts with `\\?\`. If not specified, log device events only)", ::cxxopts::value(options.deviceName))
 				("add-input", "Which TV input to switch to when the device is added. For example `HDMI_1`. If not specified, does nothing on add", ::cxxopts::value(options.addInput))
 				("remove-input", "Which TV input to switch to when the device is removed. For example `HDMI_2`. If not specified, does nothing on remove", ::cxxopts::value(options.removeInput))
