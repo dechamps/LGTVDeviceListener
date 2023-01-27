@@ -8,11 +8,14 @@
 #include <Shlobj.h>
 #include <accctrl.h>
 #include <aclapi.h>
+#include <sddl.h>
 
 namespace LGTVDeviceListener {
 	namespace {
 
+		// Note: if SERVICE_NAME is changed, SERVICE_SID *must* be updated accordingly from the output of `sc.exe showsid`.
 		constexpr auto SERVICE_NAME = L"LGTVDeviceListener";
+		constexpr auto SERVICE_SID = L"S-1-5-80-1465594813-3926234551-4209042125-1279866487-3944004573";
 
 		enum class RunMode { CONSOLE, SERVICE };
 
@@ -121,6 +124,13 @@ namespace LGTVDeviceListener {
 			return std::string(contents, bytesRead);
 		}
 
+		UniqueHeapPtr<SID> CreateSIDFromString(const wchar_t* sidString) {
+			SID* sid;
+			if (!ConvertStringSidToSidW(sidString, reinterpret_cast<PSID*>(&sid)))
+				throw std::system_error(std::error_code(::GetLastError(), std::system_category()), "Unable to create SID from string");
+			return UniqueHeapPtr<SID>(sid);
+		}
+
 		UniqueHeapPtr<ACL> CreateAcl(ULONG explicitEntriesCount, const EXPLICIT_ACCESS_W* explicitEntries) {
 			PACL acl;
 			const auto setEntriesInAclError = ::SetEntriesInAclW(explicitEntriesCount, const_cast<EXPLICIT_ACCESS_W*>(explicitEntries), NULL, &acl);
@@ -130,7 +140,7 @@ namespace LGTVDeviceListener {
 		}
 
 		void WriteClientKey(const std::wstring& path, std::string_view clientKey) {
-			const auto serviceTrusteeName = std::wstring(LR"(NT SERVICE\)") + SERVICE_NAME;
+			const auto serviceSid = CreateSIDFromString(SERVICE_SID);
 			EXPLICIT_ACCESS_W explicitEntries[] = {
 				{
 					.grfAccessPermissions = GENERIC_ALL,
@@ -151,9 +161,14 @@ namespace LGTVDeviceListener {
 					.Trustee = {
 						.pMultipleTrustee = NULL,
 						.MultipleTrusteeOperation = NO_MULTIPLE_TRUSTEE,
-						.TrusteeForm = TRUSTEE_IS_NAME,
+						.TrusteeForm = TRUSTEE_IS_SID,
+						// What we mean is "NT DEVICE\\<service name>", but we can't use that because CreateAcl() will reject
+						// attempts to use a virtual service account name for a service that doesn't exist on the system. So
+						// instead we use the raw SID, which is known in advance because virtual service account SIDs don't
+						// depend on the machine - they are a pure function of the service name.
+						// See https://github.com/dechamps/LGTVDeviceListener/issues/1
 						.TrusteeType = TRUSTEE_IS_USER,
-						.ptstrName = const_cast<wchar_t*>(serviceTrusteeName.c_str()),
+						.ptstrName = reinterpret_cast<LPWSTR>(serviceSid.get()),
 					},
 				},
 			};
