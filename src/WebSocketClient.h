@@ -11,6 +11,7 @@ namespace LGTVDeviceListener {
 		struct Options final {
 			int connectTimeoutSeconds = 5;
 			int handshakeTimeoutSeconds = 5;
+			ix::SocketTLSOptions tlsOptions;
 		};
 
 		WebSocketClient(const WebSocketClient&) = delete;

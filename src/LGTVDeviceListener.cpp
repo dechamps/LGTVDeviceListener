@@ -262,7 +262,8 @@ namespace LGTVDeviceListener {
 		void RunDeviceListener(const Options& options, const std::function<void()>& onReady) {
 			const WebSocketClient::Options webSocketClientOptions = {
 				.connectTimeoutSeconds = options.connectTimeoutSeconds,
-				.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds
+				.handshakeTimeoutSeconds = options.handshakeTimeoutSeconds,
+				.tlsOptions = [] { ix::SocketTLSOptions tlsOptions; tlsOptions.caFile = "NONE"; return tlsOptions; }()
 			};
 
 			std::optional<std::string> clientKey;

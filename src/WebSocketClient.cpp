@@ -27,6 +27,7 @@ namespace LGTVDeviceListener {
 		webSocket.setUrl(url);
 		webSocket.setHandshakeTimeout(options.handshakeTimeoutSeconds);
 		webSocket.disableAutomaticReconnection();
+		webSocket.setTLSOptions(options.tlsOptions);
 
 		std::function<OnMessage> onMessage;
 		webSocket.setOnMessageCallback([&](const ix::WebSocketMessagePtr& webSocketMessage) {
