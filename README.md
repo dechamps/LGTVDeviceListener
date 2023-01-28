@@ -30,7 +30,7 @@ After downloading the executable, run it with `--url` first. For example, if
 your TV is listening on `192.168.42.42`:
 
 ```
-LGTVDeviceListener.exe --url ws://192.168.42.42:3000
+LGTVDeviceListener.exe --url wss://192.168.42.42:3001
 ```
 
 This will do two things:
@@ -75,7 +75,7 @@ is possible to specify only one of them.
 Here's an example of a complete LGTVDeviceListener command line:
 
 ```
-LGTVDeviceListener.exe --url ws://192.168.42.42:3000 --device-name \\?\USB#VID_1234&PID_5678#foo&1&2#{bar} --add-input HDMI_1 --remove-input HDMI_2
+LGTVDeviceListener.exe --url wss://192.168.42.42:3001 --device-name \\?\USB#VID_1234&PID_5678#foo&1&2#{bar} --add-input HDMI_1 --remove-input HDMI_2
 ```
 
 With the above command, the TV at `192.168.42.42` will be switched to the HDMI 1
@@ -101,7 +101,7 @@ Windows service:
 For example:
 
 ```
-LGTVDeviceListener.exe --url ws://192.168.42.42:3000 --device-name \\?\USB#VID_1234&PID_5678#foo&1&2#{bar} --add-input HDMI_1 --remove-input HDMI_2 --create-service
+LGTVDeviceListener.exe --url wss://192.168.42.42:3001 --device-name \\?\USB#VID_1234&PID_5678#foo&1&2#{bar} --add-input HDMI_1 --remove-input HDMI_2 --create-service
 ```
 
 LGTVDeviceListener will set itself up as a new Windows service called
