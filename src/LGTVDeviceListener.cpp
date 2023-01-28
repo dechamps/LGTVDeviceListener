@@ -151,7 +151,7 @@ namespace LGTVDeviceListener {
 						.MultipleTrusteeOperation = NO_MULTIPLE_TRUSTEE,
 						.TrusteeForm = TRUSTEE_IS_NAME,
 						.TrusteeType = TRUSTEE_IS_USER,
-						.ptstrName = const_cast<wchar_t*>(L"CREATOR OWNER"),
+						.ptstrName = const_cast<wchar_t*>(L"CURRENT_USER"),
 					},
 				},
 				{
