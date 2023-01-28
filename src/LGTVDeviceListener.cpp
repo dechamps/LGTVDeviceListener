@@ -48,9 +48,9 @@ namespace LGTVDeviceListener {
 			Options options;
 			cxxoptsOptions.add_options()
 				("h,help", "Show this help message", ::cxxopts::value(options.showHelp))
-				("url", "URL of the LGTV websocket. For example `ws://192.168.1.42:3000`. If not specified, log device events only", ::cxxopts::value(options.url))
+				("url", "URL of the LGTV websocket. For example `ws://192.168.1.42:3000`. If not specified, log what would have been done instead", ::cxxopts::value(options.url))
 				("client-key-file", R"(Path to the file holding the LGTV client key. If the file doesn't exist, a new client key will be registered and written to the file (default: %ProgramData%\LGTVDeviceListener.client-key))", ::cxxopts::value(options.clientKeyFile))
-				("device-name", R"(The name of the device to watch. Typically starts with `\\?\`. If not specified, log device events only)", ::cxxopts::value(options.deviceName))
+				("device-name", R"(The name of the device to watch. Typically starts with `\\?\`. If not specified, log events from all devices)", ::cxxopts::value(options.deviceName))
 				("add-input", "Which TV input to switch to when the device is added. For example `HDMI_1`. If not specified, does nothing on add", ::cxxopts::value(options.addInput))
 				("remove-input", "Which TV input to switch to when the device is removed. For example `HDMI_2`. If not specified, does nothing on remove", ::cxxopts::value(options.removeInput))
 				("create-service", "Create a Windows service that runs with the other provided arguments, then start it", ::cxxopts::value(options.createService))
@@ -293,18 +293,17 @@ namespace LGTVDeviceListener {
 					onReady();
 				},
 				[&](DeviceEventType deviceEventType, std::wstring_view deviceName) {
-				std::wstring_view deviceEventTypeString;
+				const auto deviceEventTypeString = [&] {
+						switch (deviceEventType) {
+						case DeviceEventType::ADDED: return L"added";
+						case DeviceEventType::REMOVED: return L"removed";
+						}
+						::abort();
+				}();
 
-				const bool loggingOnly = !options.url.has_value();
-				Log(loggingOnly ? Log::Level::INFO : Log::Level::VERBOSE) << L"Device " << [&] {
-					switch (deviceEventType) {
-					case DeviceEventType::ADDED: return L"added";
-					case DeviceEventType::REMOVED: return L"removed";
-					}
-					::abort();
-				}() << L": " << deviceName;
+				Log(!expectedDeviceName.has_value() ? Log::Level::INFO : Log::Level::VERBOSE) << L"Device " << deviceEventTypeString << L": " << deviceName;
 
-				if (loggingOnly || deviceName != expectedDeviceName) return;
+				if (deviceName != expectedDeviceName) return;
 
 				const auto input = [&] {
 					switch (deviceEventType) {
@@ -313,8 +312,15 @@ namespace LGTVDeviceListener {
 					}
 					::abort();
 				}();
-				if (!input.has_value()) return;
-				Log(Log::Level::INFO) << L"Switching LGTV to input: " << ToWideString(*input, CP_UTF8);
+				if (!input.has_value()) {
+					Log(Log::Level::INFO) << "Device " << deviceEventTypeString << "; ignoring since no TV input to switch to was specified for this event";
+					return;
+				}
+
+				const auto loggingOnly = !options.url.has_value();
+				Log(Log::Level::INFO) << "Device " << deviceEventTypeString << "; " << (loggingOnly ? L"would have switched" : L"switching") << L" LGTV to input: " << ToWideString(*input, CP_UTF8);
+				if (loggingOnly) return;
+
 				LGTVClient::Run(
 					*options.url, { .clientKey = clientKey, .webSocketClientOptions = webSocketClientOptions },
 					[&](LGTVClient& lgtvClient, std::string_view) {
